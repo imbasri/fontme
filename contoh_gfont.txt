@@ -1,0 +1,6 @@
+const fs = require('fs');
+const b = fs.readFileSync('C:\\Users\\anind\\Documents\\imbasri\\Projects\\font_ku\\contoh_gfont.gfont');
+console.log('total', b.length);
+for (let i = 0; i < 100; i++) {
+  console.log(i, b[i].toString(16).padStart(2, '0'));
+}

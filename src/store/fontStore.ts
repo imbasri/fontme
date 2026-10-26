@@ -15,6 +15,42 @@ export interface Glyph {
   strokes: Point[][];
 }
 
+export interface PenSettings {
+  size: number;
+  thinning: number;
+  streamline: number;
+  smoothing: number;
+  easing: string;
+  taperStart: number;
+  taperEnd: number;
+  capStart: boolean;
+  capEnd: boolean;
+  easingStart: string;
+  easingEnd: string;
+  fill: string;
+  strokeColor: string;
+  strokeWidth: number;
+  isFilled: boolean;
+}
+
+const DEFAULT_PEN_SETTINGS: PenSettings = {
+  size: 8,
+  thinning: 0.5,
+  streamline: 0.5,
+  smoothing: 0.5,
+  easing: "linear",
+  taperStart: 0,
+  taperEnd: 0,
+  capStart: true,
+  capEnd: true,
+  easingStart: "linear",
+  easingEnd: "linear",
+  fill: "#000000",
+  strokeColor: "#000000",
+  strokeWidth: 0,
+  isFilled: true,
+};
+
 interface FontState {
   glyphs: Record<number, Glyph>;
   activeCodepoint: number | null;
@@ -24,12 +60,17 @@ interface FontState {
   xHeight: number;
   capHeight: number;
   descenderY: number;
+  penSettings: PenSettings;
 
   undoStack: Point[][][];
   redoStack: Point[][][];
   isPreviewMode: boolean;
 
   activeTool: "pen" | "hapus" | "eraser" | "halus" | "stylus";
+
+  updatePenSettings: (updates: Partial<PenSettings>) => void;
+  resetPenSettings: () => void;
+  getActivePenSettings: () => PenSettings;
 
   startStroke: (x: number, y: number) => void;
   addPoint: (x: number, y: number, pressure?: number) => void;
@@ -69,6 +110,7 @@ export const useFontStore = create<FontState>()(
         redoStack: [],
         isPreviewMode: false,
         activeTool: "pen",
+        penSettings: { ...DEFAULT_PEN_SETTINGS },
 
         startStroke: (x, y) => {
           set({ currentStroke: [{ x, y, pressure: 0.5 }], isRecording: true });
@@ -192,6 +234,16 @@ export const useFontStore = create<FontState>()(
         setActiveTool: (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") => {
           set({ activeTool: tool });
         },
+
+        updatePenSettings: (updates) => {
+          set((state) => ({ penSettings: { ...state.penSettings, ...updates } }));
+        },
+
+        resetPenSettings: () => {
+          set({ penSettings: { ...DEFAULT_PEN_SETTINGS } });
+        },
+
+        getActivePenSettings: () => get().penSettings,
       }),
       {
         name: "font_ku_store",
@@ -202,6 +254,7 @@ export const useFontStore = create<FontState>()(
           capHeight: state.capHeight,
           descenderY: state.descenderY,
           activeTool: state.activeTool,
+          penSettings: state.penSettings,
         }),
       }
     )

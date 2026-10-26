@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFontStore, Point } from "@/store/fontStore";
 import { getStroke } from "perfect-freehand";
+import { getEasingFunction } from "@/lib/easings";
 
 // 500-unit em space, y-down (y=0=atas, y=500=bawah). cap=10, xHeight=110, baseline=360, descender=475
 const EM = 500;
@@ -26,6 +27,7 @@ export function Canvas() {
     activeTool,
     isPreviewMode,
     clearCurrentStroke,
+    penSettings,
   } = useFontStore();
 
   const activeGlyph = activeCodepoint ? glyphs[activeCodepoint] : null;
@@ -159,21 +161,48 @@ export function Canvas() {
     const pts = upTo !== undefined ? stroke.slice(0, upTo + 1) : stroke;
     if (pts.length < 2) return;
     ctx.setLineDash([]);
-    ctx.strokeStyle = color;
-    const getStrokeWidth = (p: Point) => {
-      const pressure = p.pressure ?? 0.5;
-      return pressure === 0.5 ? 3 : Math.max(1.5, Math.min(6, 3 * pressure * 1.5));
+    const taperStartVal: number | boolean = penSettings.taperStart === 100 ? true : penSettings.taperStart;
+    const taperEndVal: number | boolean = penSettings.taperEnd === 100 ? true : penSettings.taperEnd;
+    const strokeOptions = {
+      size: penSettings.size,
+      thinning: penSettings.thinning,
+      streamline: penSettings.streamline,
+      smoothing: penSettings.smoothing,
+      easing: getEasingFunction(penSettings.easing),
+      simulatePressure: true,
+      start: {
+        cap: penSettings.capStart,
+        taper: taperStartVal,
+        easing: getEasingFunction(penSettings.easingStart),
+      },
+      end: {
+        cap: penSettings.capEnd,
+        taper: taperEndVal,
+        easing: getEasingFunction(penSettings.easingEnd),
+      },
+      last: true,
     };
-    // Use perfect-freehand to generate outline points for smooth strokes
     const outlinePts = getStroke(
       pts.map((p) => [p.x, p.y, p.pressure ?? 0.5] as [number, number, number]),
-      { size: 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5, simulatePressure: true }
+      strokeOptions
     );
+    if (outlinePts.length < 3) return;
+
+    ctx.beginPath();
+    ctx.moveTo(outlinePts[0][0], outlinePts[0][1]);
     for (let i = 1; i < outlinePts.length; i++) {
-      ctx.beginPath();
-      ctx.moveTo(outlinePts[i - 1][0], outlinePts[i - 1][1]);
       ctx.lineTo(outlinePts[i][0], outlinePts[i][1]);
-      ctx.lineWidth = getStrokeWidth({ x: outlinePts[i][0], y: outlinePts[i][1] });
+    }
+    ctx.closePath();
+
+    if (penSettings.isFilled) {
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    if (penSettings.strokeWidth > 0) {
+      ctx.strokeStyle = penSettings.strokeColor;
+      ctx.lineWidth = penSettings.strokeWidth;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.stroke();
@@ -199,13 +228,13 @@ export function Canvas() {
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       paintGuides(ctx, w, h);
-      for (const s of strokes) paintStroke(ctx, s, "#1f2937");
-      for (const s of liveStroke) paintStroke(ctx, s, "#3b82f6");
+      for (const s of strokes) paintStroke(ctx, s, penSettings.isFilled ? penSettings.fill : "transparent");
+      for (const s of liveStroke) paintStroke(ctx, s, penSettings.isFilled ? penSettings.fill : "transparent");
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { cancelled = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [strokes, liveStroke, isPreviewMode, baselineY, xHeight, capHeight, descenderY, size]);
+  }, [strokes, liveStroke, isPreviewMode, baselineY, xHeight, capHeight, descenderY, size, penSettings]);
 
   // Preview mode: animate stroke by stroke
   useEffect(() => {
@@ -232,11 +261,11 @@ export function Canvas() {
       paintGuides(ctx, w, h);
 
       const done = Math.min(Math.floor(frame / 5), strokes.length);
-      for (let i = 0; i < done; i++) paintStroke(ctx, strokes[i], "#1f2937");
+      for (let i = 0; i < done; i++) paintStroke(ctx, strokes[i], penSettings.isFilled ? penSettings.fill : "transparent");
 
       if (done < strokes.length) {
         const upto = Math.min((frame % 5) + 1, strokes[done].length);
-        paintStroke(ctx, strokes[done], "#3b82f6", upto);
+        paintStroke(ctx, strokes[done], penSettings.isFilled ? penSettings.fill : "transparent", upto);
         const pen = strokes[done][upto - 1];
         if (pen) {
           ctx.fillStyle = "#3b82f6";
@@ -249,13 +278,11 @@ export function Canvas() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { cancelled = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [strokes, isPreviewMode, baselineY, xHeight, capHeight, descenderY, size]);
+  }, [strokes, isPreviewMode, baselineY, xHeight, capHeight, descenderY, size, penSettings]);
 
   const canvasStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
-    maxWidth: "1000px",
-    maxHeight: "500px",
   };
 
   return (
