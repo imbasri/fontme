@@ -24,6 +24,9 @@ const DESC = 475;
 // px position of an em-space y value inside one cell
 const emToCellY = (y: number) => (y / EM) * CELL_H;
 
+// Top y in px for a given row index
+const oyForRow = (row: number) => row * CELL_H;
+
 export interface CellInfo {
   row: number;
   col: number;
@@ -107,10 +110,27 @@ export function drawTemplate(
 
   // Header
   ctx.fillStyle = "#52525b";
-  ctx.font = "bold 14px sans-serif";
-  ctx.fillText("FontKu Template — All Characters", 16, 24);
-  ctx.font = "11px sans-serif";
-  ctx.fillText("Write one character per cell, touching the baseline", 16, 40);
+  ctx.font = "bold 18px sans-serif";
+  ctx.fillText("FontKu Template — All Characters", 20, 30);
+  ctx.font = "13px sans-serif";
+  ctx.fillText("Write one character per cell, touching the baseline. Each cell = one glyph to draw.", 20, 50);
+
+  // Row group labels (left margin) — 9 cols per row
+  const rowGroups = [
+    { rows: [0, 1, 2], label: "UPPER\nA-Z" },
+    { rows: [3, 4, 5], label: "LOWER\na-z" },
+    { rows: [6, 7], label: "DIGITS\n0-9" },
+    { rows: [8, 9, 10], label: "SYMBOLS" },
+  ];
+  ctx.font = "bold 11px sans-serif";
+  ctx.fillStyle = "#71717a";
+  for (const g of rowGroups) {
+    const lines = g.label.split("\n");
+    const midY = oyForRow(g.rows[Math.floor(g.rows.length / 2)]) + CELL_H / 2;
+    lines.forEach((line, li) => {
+      ctx.fillText(line, 4, midY - (lines.length - 1) * 6 + li * 12);
+    });
+  }
 
   for (let i = 0; i < CHAR_SLOTS.length; i++) {
     const cell = cellForIndex(i);
@@ -143,10 +163,15 @@ export function drawTemplate(
     guide(BASE, "#ef4444", "base");
     guide(DESC, "#f59e0b", "desc");
 
-    // slot label (top-left, light gray like the reference template)
-    ctx.fillStyle = "#e4e4e7";
-    ctx.font = "bold 11px sans-serif";
-    ctx.fillText(cell.char, ox + 4, oy + 14);
+    // slot label (top-left, larger and more visible)
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(cell.char, ox + 8, oy + 24);
+
+    // slot number (top-right, small, helps with mapping)
+    ctx.fillStyle = "#d4d4d8";
+    ctx.font = "10px sans-serif";
+    ctx.fillText(String(i + 1).padStart(2, "0"), ox + CELL_W - 20, oy + 12);
 
     // strokes for this cell: 500 em-space → cell px, using perfect-freehand
     const cellStrokes = strokes[i];

@@ -223,7 +223,7 @@ export default function Editor() {
             <input
               ref={templateInputRef}
               type="file"
-              accept="image/png"
+              accept="image/png,application/pdf"
               style={{ display: "none" }}
               onChange={(e) => handleImportTemplate(e.target.files?.[0] ?? null)}
             />
