@@ -133,14 +133,6 @@ export default function Editor() {
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
             FontKu - Font Trajectory Designer
           </h1>
-          <select
-            value={exportFormat}
-            onChange={(e) => setExportFormat(e.target.value as "gfont" | "ttf")}
-            className="text-sm border border-zinc-300 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-800"
-          >
-            <option value="gfont">.gfont</option>
-            <option value="ttf">.ttf</option>
-          </select>
         </header>
 
         {/* Tools topbar */}
@@ -192,13 +184,21 @@ export default function Editor() {
             >
               Clear All
             </button>
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as "gfont" | "ttf")}
+              className="text-sm border border-zinc-300 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-800"
+            >
+              <option value="gfont">.gfont</option>
+              <option value="ttf">.ttf</option>
+            </select>
             <button
               onClick={handleExport}
               disabled={!hasGlyphs || exporting}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 bg-blue-600 text-white border-blue-600 hover:bg-blue-500 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
             >
               <Download size={16} />
-              <span className="tracking-tight">{exporting ? "Exporting..." : `Export .${exportFormat}`}</span>
+              <span className="tracking-tight">{exporting ? "Exporting..." : `Export`}</span>
             </button>
           </div>
         </div>
