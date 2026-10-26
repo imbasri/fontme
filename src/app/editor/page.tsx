@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Confetti } from "@/components/ui/confetti";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { useState, useRef } from "react";
 import { Canvas } from "@/components/Canvas";
 import { TextPreview } from "@/components/TextPreview";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
