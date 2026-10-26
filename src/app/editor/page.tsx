@@ -73,9 +73,8 @@ export default function Editor() {
     }
   };
 
-  const TOOLS: Array<{ label: string; key: "pen" | "hapus" | "eraser" | "halus" | "stylus"; icon: React.ReactNode }> = [
+  const TOOLS: Array<{ label: string; key: "pen" | "eraser" | "halus" | "stylus"; icon: React.ReactNode }> = [
     { label: "Pen", key: "pen", icon: <Pencil size={16} /> },
-    { label: "Hapus", key: "hapus", icon: <Trash2 size={16} /> },
     { label: "Eraser", key: "eraser", icon: <Eraser size={16} /> },
     { label: "Halus", key: "halus", icon: <Waves size={16} /> },
     { label: "Stylus", key: "stylus", icon: <Feather size={16} /> },
@@ -87,7 +86,7 @@ export default function Editor() {
       ? "border-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-md"
       : "border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500";
 
-  const toggleTool = (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") =>
+  const toggleTool = (tool: "pen" | "eraser" | "halus" | "stylus") =>
     setActiveTool(tool);
 
   const nextSlot = () => {
