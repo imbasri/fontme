@@ -26,6 +26,8 @@ interface FontState {
   redoStack: Point[][][];
   isPreviewMode: boolean;
 
+  activeTool: "pen" | "hapus" | "eraser" | "halus" | "stylus";
+
   startStroke: (x: number, y: number) => void;
   addPoint: (x: number, y: number) => void;
   endStroke: () => void;
@@ -37,6 +39,7 @@ interface FontState {
   deleteGlyph: (codepoint: number) => void;
   reset: () => void;
   setPreviewMode: (active: boolean) => void;
+  setActiveTool: (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") => void;
 }
 
 const DEFAULT_GUIDELINES = {
@@ -62,6 +65,7 @@ export const useFontStore = create<FontState>()(
         undoStack: [],
         redoStack: [],
         isPreviewMode: false,
+        activeTool: "pen",
 
         startStroke: (x, y) => {
           set({ currentStroke: [{ x, y }], isRecording: true });
@@ -163,6 +167,10 @@ export const useFontStore = create<FontState>()(
         setPreviewMode: (active: boolean) => {
           set({ isPreviewMode: active });
         },
+
+        setActiveTool: (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") => {
+          set({ activeTool: tool });
+        },
       }),
       {
         name: "font_ku_store",
@@ -172,6 +180,7 @@ export const useFontStore = create<FontState>()(
           xHeight: state.xHeight,
           capHeight: state.capHeight,
           descenderY: state.descenderY,
+          activeTool: state.activeTool,
         }),
       }
     )

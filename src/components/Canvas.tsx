@@ -22,7 +22,9 @@ export function Canvas() {
     addPoint,
     endStroke,
     glyphs,
+    activeTool,
     isPreviewMode,
+    clearCurrentStroke,
   } = useFontStore();
 
   const activeGlyph = activeCodepoint ? glyphs[activeCodepoint] : null;
@@ -45,10 +47,54 @@ export function Canvas() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isPreviewMode) return;
-    const { x, y } = toEmCoord(e.clientX, e.clientY);
-    startStroke(x, y);
-    setIsDrawing(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (activeTool === "hapus") {
+      // Hapus: delete nearest point/stroke
+      const { x, y } = toEmCoord(e.clientX, e.clientY);
+      let minDist = Infinity;
+      let targetIndex = -1;
+      let targetStrokeIdx = -1;
+      
+      for (let i = 0; i < strokes.length; i++) {
+        for (let j = 0; j < strokes[i].length; j++) {
+          const dx = strokes[i][j].x - x;
+          const dy = strokes[i][j].y - y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < minDist && dist < 5) {
+            minDist = dist;
+            targetIndex = i;
+            targetStrokeIdx = j;
+          }
+        }
+      }
+      
+      if (targetIndex !== -1 && targetStrokeIdx !== -1) {
+        // Remove point from stroke
+        strokes[targetIndex].splice(targetStrokeIdx, 1);
+        if (strokes[targetIndex].length === 0) {
+          strokes.splice(targetIndex, 1);
+        }
+      }
+    } else if (activeTool === "eraser") {
+      // Eraser: clear current stroke
+      setIsDrawing(false);
+      clearCurrentStroke();
+    } else if (activeTool === "halus") {
+      // Halus: toggle smoothing (could be implemented in paintStroke or add smoothing logic)
+      // For now, just visual feedback - maybe add a smoothed version of stroke
+      // This is a placeholder - actual smoothing would need more complex algorithm
+      console.log("Halus mode activated");
+    } else if (activeTool === "stylus") {
+      // Stylus: handwriting feel - could modify stroke rendering
+      // For now, just use normal drawing but maybe different color or style
+    }
+    
+    // Default behavior for pen/stylus
+    if (activeTool === "pen" || activeTool === "stylus") {
+      const { x, y } = toEmCoord(e.clientX, e.clientY);
+      startStroke(x, y);
+      setIsDrawing(true);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
