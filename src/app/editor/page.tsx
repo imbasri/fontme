@@ -227,6 +227,7 @@ export default function Editor() {
               <Download size={16} />
               <span className="tracking-tight">{exporting ? "Exporting..." : `Export`}</span>
             </button>
+            <span className="text-xs text-zinc-600 dark:text-zinc-400">PNG or PDF</span>
             <input
               ref={templateInputRef}
               type="file"
@@ -239,7 +240,7 @@ export default function Editor() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
             >
               <Upload size={16} />
-              <span className="tracking-tight">Import Template</span>
+              <span className="tracking-tight">Import (PDF/PNG)</span>
             </button>
             <button
               onClick={() => downloadTemplatePdf()}

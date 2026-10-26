@@ -13,6 +13,9 @@ export const TEMPLATE_W = 2480;
 export const TEMPLATE_H = 3508;
 export const CELL_W = TEMPLATE_W / TEMPLATE_COLS; // ~275.56
 export const CELL_H = TEMPLATE_H / TEMPLATE_ROWS; // ~318.91
+// Integer cell sizes for pixel-level indexing (masks, getImageData)
+export const CELL_W_INT = Math.round(CELL_W); // 276
+export const CELL_H_INT = Math.round(CELL_H); // 319
 
 // 500 em-space guideline ratios (matches fontStore defaults, y-down)
 export const EM = 500;
@@ -108,8 +111,8 @@ export function drawTemplate(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H);
 
-  // Header
-  ctx.fillStyle = "#52525b";
+  // Header (mid-gray: prints clearly but stays above import ink threshold so it's not read as writing)
+  ctx.fillStyle = "#909090";
   ctx.font = "bold 18px sans-serif";
   ctx.fillText("FontKu Template — All Characters", 20, 30);
   ctx.font = "13px sans-serif";
@@ -123,7 +126,7 @@ export function drawTemplate(
     { rows: [8, 9, 10], label: "SYMBOLS" },
   ];
   ctx.font = "bold 11px sans-serif";
-  ctx.fillStyle = "#71717a";
+  ctx.fillStyle = "#909090";
   for (const g of rowGroups) {
     const lines = g.label.split("\n");
     const midY = oyForRow(g.rows[Math.floor(g.rows.length / 2)]) + CELL_H / 2;
