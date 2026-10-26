@@ -90,6 +90,22 @@ export default function Editor() {
   const toggleTool = (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") =>
     setActiveTool(tool);
 
+  const nextSlot = () => {
+    const idx = activeCodepoint != null
+      ? CHAR_SLOTS.findIndex(s => s.codepoint === activeCodepoint)
+      : -1;
+    const next = CHAR_SLOTS[(idx + 1 + CHAR_SLOTS.length) % CHAR_SLOTS.length];
+    selectGlyph(next.codepoint);
+  };
+
+  const prevSlot = () => {
+    const idx = activeCodepoint != null
+      ? CHAR_SLOTS.findIndex(s => s.codepoint === activeCodepoint)
+      : CHAR_SLOTS.length; // -1 from next index, so start at 0
+    const prev = CHAR_SLOTS[(idx - 1 + CHAR_SLOTS.length) % CHAR_SLOTS.length];
+    selectGlyph(prev.codepoint);
+  };
+
   const togglePreviewMode = () => {
     setPreviewMode(!previewMode);
     setPreviewModeState(!previewMode);
@@ -100,6 +116,21 @@ export default function Editor() {
       <PenSettingsPanel isOpen={showPenSettings} onClose={() => setShowPenSettings(false)} />
 
       <div className="flex flex-col h-screen bg-zinc-50 dark:bg-zinc-900">
+        {/* Navbar */}
+        <header className="flex items-center justify-between p-4 bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+            FontKu - Font Trajectory Designer
+          </h1>
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as "gfont" | "ttf")}
+            className="text-sm border border-zinc-300 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-800"
+          >
+            <option value="gfont">.gfont</option>
+            <option value="ttf">.ttf</option>
+          </select>
+        </header>
+
         {/* Tools topbar */}
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 h-14">
           <div className="flex items-center gap-3">
@@ -154,8 +185,28 @@ export default function Editor() {
         {/* Main area: canvas + character slots */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Canvas area */}
-          <div className="flex-1 flex items-center justify-center min-w-0 min-h-0 p-6">
-            <div className="relative w-full max-w-[min(600px,calc(100vh-180px))] aspect-square rounded-md shadow-sm">
+          <div className="flex-1 flex flex-col items-center justify-center min-w-0 min-h-0 p-6 gap-3">
+            {/* Prev / Next slot nav */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={prevSlot}
+                title="Previous slot"
+                className="w-9 h-9 rounded-lg flex items-center justify-center border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-lg font-medium"
+              >
+                ←
+              </button>
+              <span className="text-sm font-mono text-zinc-500 dark:text-zinc-400 min-w-[80px] text-center">
+                {activeCodepoint != null ? `${String.fromCharCode(activeCodepoint)} (${activeCodepoint})` : "—"}
+              </span>
+              <button
+                onClick={nextSlot}
+                title="Next slot"
+                className="w-9 h-9 rounded-lg flex items-center justify-center border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-lg font-medium"
+              >
+                →
+              </button>
+            </div>
+            <div className="relative w-full max-w-[min(600px,calc(100vh-240px))] aspect-square rounded-md shadow-sm">
               <Canvas />
               {activeCodepoint && (
                 <div className="absolute top-3 left-3 px-2.5 py-1.5 text-sm font-mono bg-black/50 text-white rounded">
