@@ -110,44 +110,50 @@ export function traceComponent(comp: Set<number>, w: number, h: number, mask: Ui
     start = best;
   }
 
-  // Use comp as fast "visited" check (comp is the set of ink pixels in this component)
-  const path: Point[] = [];
-  const used = new Set<number>();
-  let cx = start[0], cy = start[1];
-  let prevX = cx, prevY = cy; // for direction
+  // BFS from start to farthest endpoint → longest centerline path
+  const startIdx = start[1] * w + start[0];
+  const dist = new Int32Array(w * h).fill(-1);
+  const parent = new Int32Array(w * h).fill(-1);
+  const queue: number[] = [startIdx];
+  dist[startIdx] = 0;
+  let head = 0;
 
-  while (true) {
-    path.push({ x: cx, y: cy });
-    used.add(cy * w + cx);
-
-    // Direction vector
-    const dirX = cx - prevX, dirY = cy - prevY;
-
-    // Find best next: prefer continuing direction, else any unvisited neighbor
-    let bestX = -1, bestY = -1, bestPriority = Infinity;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    const cx = cur % w, cy = Math.floor(cur / w);
     for (const [dx, dy] of DIRS) {
       const nx = cx + dx, ny = cy + dy;
-      if (!has(nx, ny) || used.has(ny * w + nx)) continue;
-      // Direction continuity score (lower = better)
-      let priority: number;
-      if (dirX === 0 && dirY === 0) {
-        priority = 0;
-      } else {
-        priority = -(dx * dirX + dy * dirY);
-      }
-      if (priority < bestPriority) {
-        bestPriority = priority;
-        bestX = nx;
-        bestY = ny;
-      }
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const nidx = ny * w + nx;
+      if (!mask[nidx] || dist[nidx] >= 0) continue;
+      dist[nidx] = dist[cur] + 1;
+      parent[nidx] = cur;
+      queue.push(nidx);
     }
-
-    if (bestX < 0) break;
-    prevX = cx;
-    prevY = cy;
-    cx = bestX;
-    cy = bestY;
   }
+
+  // Find farthest pixel from start (prefer endpoints, fall back to all visited pixels)
+  let farthest = startIdx, maxDist = 0;
+  for (const [ex, ey] of endpoints) {
+    const eidx = ey * w + ex;
+    if (dist[eidx] > maxDist) { maxDist = dist[eidx]; farthest = eidx; }
+  }
+  if (maxDist === 0) {
+    // No degree-1 pixels found; use any BFS-reachable pixel farthest from start
+    for (const idx of comp) {
+      if (dist[idx] > maxDist) { maxDist = dist[idx]; farthest = idx; }
+    }
+  }
+
+  // Reconstruct path: farthest → start, then reverse
+  const path: Point[] = [];
+  let cur = farthest;
+  while (cur >= 0) {
+    const cx = cur % w, cy = Math.floor(cur / w);
+    path.push({ x: cx, y: cy });
+    cur = parent[cur];
+  }
+  path.reverse();
 
   return path;
 }
