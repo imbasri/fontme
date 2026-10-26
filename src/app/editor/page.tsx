@@ -9,6 +9,7 @@ import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
 import { Pencil, Eraser, Waves, Feather, Settings, Download } from "lucide-react";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface GlyphInput {
   codepoint: number;
@@ -133,6 +134,11 @@ export default function Editor() {
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
             FontKu - Font Trajectory Designer
           </h1>
+          <AnimatedThemeToggler
+            variant="circle"
+            duration={400}
+            className="w-9 h-9 rounded-full flex items-center justify-center border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+          />
         </header>
 
         {/* Tools topbar */}
