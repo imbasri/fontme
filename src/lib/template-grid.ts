@@ -1,4 +1,4 @@
-// 1-page template PNG: 10×10 grid, one character per cell, touching baseline.
+// 1-page template PNG: 9×11 grid (96 slots, last row 6 cells), matching fontkrea_template.png at A4 300 DPI (2480×3508).
 // Cell interior maps to the same 500-unit em space as the editor canvas.
 
 import { CHAR_SLOTS } from "./charset";
@@ -6,11 +6,13 @@ import { getStroke } from "perfect-freehand";
 import { getEasingFunction } from "./easings";
 import { useFontStore, type Point } from "@/store/fontStore";
 
-export const TEMPLATE_COLS = 10;
-export const TEMPLATE_ROWS = 10;
-export const CELL = 100; // px per cell
-export const TEMPLATE_W = TEMPLATE_COLS * CELL;
-export const TEMPLATE_H = TEMPLATE_ROWS * CELL;
+// A4 at 300 DPI = 2480×3508 px, 9 cols × 11 rows = 96 slots (CHAR_SLOTS.length)
+export const TEMPLATE_COLS = 9;
+export const TEMPLATE_ROWS = 11;
+export const TEMPLATE_W = 2480;
+export const TEMPLATE_H = 3508;
+export const CELL_W = TEMPLATE_W / TEMPLATE_COLS; // ~275.56
+export const CELL_H = TEMPLATE_H / TEMPLATE_ROWS; // ~318.91
 
 // 500 em-space guideline ratios (matches fontStore defaults, y-down)
 export const EM = 500;
@@ -20,7 +22,7 @@ const BASE = 360;
 const DESC = 475;
 
 // px position of an em-space y value inside one cell
-const emToCellY = (y: number) => (y / EM) * CELL;
+const emToCellY = (y: number) => (y / EM) * CELL_H;
 
 export interface CellInfo {
   row: number;
@@ -70,10 +72,12 @@ function paintStroke(
   );
   if (outline.length < 3) return;
 
+  const sx = CELL_W / EM;
+  const sy = CELL_H / EM;
   ctx.beginPath();
-  ctx.moveTo(ox + (outline[0][0] / EM) * CELL, oy + (outline[0][1] / EM) * CELL);
+  ctx.moveTo(ox + outline[0][0] * sx, oy + outline[0][1] * sy);
   for (let i = 1; i < outline.length; i++) {
-    ctx.lineTo(ox + (outline[i][0] / EM) * CELL, oy + (outline[i][1] / EM) * CELL);
+    ctx.lineTo(ox + outline[i][0] * sx, oy + outline[i][1] * sy);
   }
   ctx.closePath();
 
@@ -111,13 +115,13 @@ export function drawTemplate(
   for (let i = 0; i < CHAR_SLOTS.length; i++) {
     const cell = cellForIndex(i);
     if (!cell) continue;
-    const ox = cell.col * CELL;
-    const oy = cell.row * CELL;
+    const ox = cell.col * CELL_W;
+    const oy = cell.row * CELL_H;
 
     // cell border
     ctx.strokeStyle = "#d4d4d8";
     ctx.lineWidth = 1;
-    ctx.strokeRect(ox + 0.5, oy + 0.5, CELL, CELL);
+    ctx.strokeRect(ox + 0.5, oy + 0.5, CELL_W, CELL_H);
 
     // guidelines (dashed, colored like editor)
     const guide = (yv: number, color: string, label: string) => {
@@ -127,7 +131,7 @@ export function drawTemplate(
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(ox + 4, y);
-      ctx.lineTo(ox + CELL - 4, y);
+      ctx.lineTo(ox + CELL_W - 4, y);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = color;
@@ -156,17 +160,23 @@ export function drawTemplate(
   }
 }
 
-/** Download a blank (or filled) template sheet as fontku-template.png. */
-export function downloadTemplate(strokes?: Array<Array<Point[] | null>>) {
+/** Download a blank (or filled) template sheet as fontku-template.pdf (A4 at 300 DPI). */
+export function downloadTemplatePdf(strokes?: Array<Array<Point[] | null>>) {
   const canvas = document.createElement("canvas");
+  canvas.width = TEMPLATE_W;
+  canvas.height = TEMPLATE_H;
   drawTemplate(canvas, strokes ?? Array(CHAR_SLOTS.length).fill(null));
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "fontku-template.png";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, "image/png");
+
+  // Convert canvas to PDF using jsPDF
+  import("jspdf").then((module) => {
+    const { default: jsPDF } = module;
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: [TEMPLATE_W, TEMPLATE_H],
+    });
+    const imgData = canvas.toDataURL("image/png");
+    pdf.addImage(imgData, "PNG", 0, 0, TEMPLATE_W, TEMPLATE_H);
+    pdf.save("fontku-template.pdf");
+  });
 }

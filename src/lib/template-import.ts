@@ -1,11 +1,11 @@
 // Import a filled-in fontku template PNG back into stroke data (draw store).
-// The sheet must be the 10×10 grid our exporter produces (or any image with
+// The sheet must be the 9×11 grid our exporter produces (or any image with
 // that exact layout). In each cell we threshold dark pixels and trace them
 // into one stroke in em space (500 units).
 
 import { useFontStore, Point } from "@/store/fontStore";
 import { CHAR_SLOTS } from "./charset";
-import { cellForIndex, TEMPLATE_COLS, TEMPLATE_ROWS, CELL, EM } from "./template-grid";
+import { cellForIndex, CELL_W, CELL_H, TEMPLATE_W, TEMPLATE_H, EM } from "./template-grid";
 
 const DARK_THRESHOLD = 200; // pixel brightness below this = ink
 
@@ -15,23 +15,23 @@ function cellToEmPoints(
   row: number
 ): Point[] {
   const tmp = document.createElement("canvas");
-  tmp.width = CELL;
-  tmp.height = CELL;
+  tmp.width = CELL_W;
+  tmp.height = CELL_H;
   const ctx = tmp.getContext("2d")!;
-  ctx.drawImage(src, col * CELL, row * CELL, CELL, CELL, 0, 0, CELL, CELL);
-  const { data } = ctx.getImageData(0, 0, CELL, CELL);
+  ctx.drawImage(src, col * CELL_W, row * CELL_H, CELL_W, CELL_H, 0, 0, CELL_W, CELL_H);
+  const { data } = ctx.getImageData(0, 0, CELL_W, CELL_H);
 
   const pts: Point[] = [];
-  for (let y = 0; y < CELL; y++) {
-    for (let x = 0; x < CELL; x++) {
-      const i = (y * CELL + x) * 4;
+  for (let y = 0; y < CELL_H; y++) {
+    for (let x = 0; x < CELL_W; x++) {
+      const i = (y * CELL_W + x) * 4;
       const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
       if (a < 128) continue;
       const brightness = (r + g + b) / 3;
       if (brightness < DARK_THRESHOLD) {
         pts.push({
-          x: (x / CELL) * EM,
-          y: (y / CELL) * EM,
+          x: (x / CELL_W) * EM,
+          y: (y / CELL_H) * EM,
           pressure: 1 - brightness / DARK_THRESHOLD, // darker = heavier
         });
       }
@@ -57,8 +57,8 @@ export async function importTemplate(file: File): Promise<{ imported: number; to
 
   // Downscale/upscale to exact template size so cells align with CHAR_SLOTS
   const canvas = document.createElement("canvas");
-  canvas.width = TEMPLATE_COLS * CELL;
-  canvas.height = TEMPLATE_ROWS * CELL;
+  canvas.width = TEMPLATE_W;
+  canvas.height = TEMPLATE_H;
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);

@@ -7,7 +7,7 @@ import { BorderBeam } from "@/components/ui/border-beam";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
-import { downloadTemplate } from "@/lib/template-grid";
+import { downloadTemplatePdf } from "@/lib/template-grid";
 import { importTemplate } from "@/lib/template-import";
 import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -235,11 +235,11 @@ export default function Editor() {
               <span className="tracking-tight">Import Template</span>
             </button>
             <button
-              onClick={() => downloadTemplate()}
+              onClick={() => downloadTemplatePdf()}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
             >
               <Download size={16} />
-              <span className="tracking-tight">Download Template</span>
+              <span className="tracking-tight">Download Template PDF</span>
             </button>
           </div>
         </div>
