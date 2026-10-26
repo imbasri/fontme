@@ -51,39 +51,78 @@ export function Canvas() {
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isPreviewMode) return;
     if (activeTool === "hapus") {
-      // Hapus: delete nearest point/stroke
+      // Hapus: delete nearest point
       const { x, y } = toEmCoord(e.clientX, e.clientY);
+      if (!activeCodepoint) return;
+      const glyph = glyphs[activeCodepoint];
+      if (!glyph) return;
+
       let minDist = Infinity;
-      let targetIndex = -1;
       let targetStrokeIdx = -1;
-      
-      for (let i = 0; i < strokes.length; i++) {
-        for (let j = 0; j < strokes[i].length; j++) {
-          const dx = strokes[i][j].x - x;
-          const dy = strokes[i][j].y - y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < minDist && dist < 5) {
+      let targetPointIdx = -1;
+
+      for (let i = 0; i < glyph.strokes.length; i++) {
+        for (let j = 0; j < glyph.strokes[i].length; j++) {
+          const dx = glyph.strokes[i][j].x - x;
+          const dy = glyph.strokes[i][j].y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < minDist && dist < 8) {
             minDist = dist;
-            targetIndex = i;
-            targetStrokeIdx = j;
+            targetStrokeIdx = i;
+            targetPointIdx = j;
           }
         }
       }
-      
-      if (targetIndex !== -1 && targetStrokeIdx !== -1) {
-        // Remove point from stroke
-        strokes[targetIndex].splice(targetStrokeIdx, 1);
-        if (strokes[targetIndex].length === 0) {
-          strokes.splice(targetIndex, 1);
-        }
+
+      if (targetStrokeIdx !== -1 && targetPointIdx !== -1) {
+        const newStrokes = glyph.strokes.map((s, si) =>
+          si === targetStrokeIdx
+            ? s.filter((_, pi) => pi !== targetPointIdx)
+            : s
+        ).filter(s => s.length > 0);
+
+        useFontStore.setState({
+          glyphs: {
+            ...glyphs,
+            [activeCodepoint]: { ...glyph, strokes: newStrokes },
+          },
+        });
       }
     } else if (activeTool === "eraser") {
-      // Eraser: clear current stroke
-      setIsDrawing(false);
-      clearCurrentStroke();
+      // Eraser: delete entire stroke under cursor
+      const { x, y } = toEmCoord(e.clientX, e.clientY);
+      if (!activeCodepoint) return;
+      const glyph = glyphs[activeCodepoint];
+      if (!glyph) return;
+
+      let targetStrokeIdx = -1;
+      let minDist = Infinity;
+
+      for (let i = 0; i < glyph.strokes.length; i++) {
+        // Check distance to stroke centroid
+        const stroke = glyph.strokes[i];
+        if (stroke.length === 0) continue;
+        const cx = stroke.reduce((sum, p) => sum + p.x, 0) / stroke.length;
+        const cy = stroke.reduce((sum, p) => sum + p.y, 0) / stroke.length;
+        const dist = Math.hypot(cx - x, cy - y);
+        if (dist < minDist && dist < 20) {
+          minDist = dist;
+          targetStrokeIdx = i;
+        }
+      }
+
+      if (targetStrokeIdx !== -1) {
+        const newStrokes = glyph.strokes.filter((_, i) => i !== targetStrokeIdx);
+        useFontStore.setState({
+          glyphs: {
+            ...glyphs,
+            [activeCodepoint]: { ...glyph, strokes: newStrokes },
+          },
+        });
+      }
     }
-    
-// Pen/halus/stylus: start stroke; smoothing & stylus pressure handled in addPoint
+
+    // Pen/halus/stylus: start stroke; smoothing & stylus pressure handled in addPoint
     if (activeTool === "pen" || activeTool === "halus" || activeTool === "stylus") {
       const { x, y } = toEmCoord(e.clientX, e.clientY);
       const pressure = activeTool === "stylus" ? (e.pressure || 0.5) : 0.5;

@@ -30,7 +30,7 @@ export default function Editor() {
   } = useFontStore();
 
   const [exporting, setExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState("gfont" as "gfont" | "ttf");
+  const [exportFormat, setExportFormat] = useState<"gfont" | "ttf">("ttf");
   const [previewMode, setPreviewModeState] = useState(false);
   const [showPenSettings, setShowPenSettings] = useState(false);
 
