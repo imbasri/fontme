@@ -2,6 +2,9 @@
 // Cell interior maps to the same 500-unit em space as the editor canvas.
 
 import { CHAR_SLOTS } from "./charset";
+import { getStroke } from "perfect-freehand";
+import { getEasingFunction } from "./easings";
+import { useFontStore, type Point } from "@/store/fontStore";
 
 export const TEMPLATE_COLS = 10;
 export const TEMPLATE_ROWS = 10;
@@ -40,16 +43,70 @@ export function indexForCodepoint(codepoint: number): number {
   return CHAR_SLOTS.findIndex((s) => s.codepoint === codepoint);
 }
 
-/** Draw a blank template sheet into a canvas. `strokes` = Point[][] per CHAR_SLOTS index. */
+/** Paint a single perfect-freehand stroke onto a cell-relative context. */
+function paintStroke(
+  ctx: CanvasRenderingContext2D,
+  pts: Point[],
+  ox: number,
+  oy: number,
+  ps: ReturnType<typeof useFontStore.getState>["penSettings"]
+) {
+  if (pts.length < 2) return;
+  const taperStartVal: number | boolean = ps.taperStart === 100 ? true : ps.taperStart;
+  const taperEndVal: number | boolean = ps.taperEnd === 100 ? true : ps.taperEnd;
+  const outline = getStroke(
+    pts.map((p) => [p.x, p.y, p.pressure ?? 0.5] as [number, number, number]),
+    {
+      size: ps.size,
+      thinning: ps.thinning,
+      streamline: ps.streamline,
+      smoothing: ps.smoothing,
+      easing: getEasingFunction(ps.easing),
+      simulatePressure: true,
+      start: { cap: ps.capStart, taper: taperStartVal, easing: getEasingFunction(ps.easingStart) },
+      end: { cap: ps.capEnd, taper: taperEndVal, easing: getEasingFunction(ps.easingEnd) },
+      last: true,
+    }
+  );
+  if (outline.length < 3) return;
+
+  ctx.beginPath();
+  ctx.moveTo(ox + (outline[0][0] / EM) * CELL, oy + (outline[0][1] / EM) * CELL);
+  for (let i = 1; i < outline.length; i++) {
+    ctx.lineTo(ox + (outline[i][0] / EM) * CELL, oy + (outline[i][1] / EM) * CELL);
+  }
+  ctx.closePath();
+
+  if (ps.isFilled) {
+    ctx.fillStyle = ps.fill;
+    ctx.fill();
+  }
+  if (ps.strokeWidth > 0) {
+    ctx.strokeStyle = ps.strokeColor;
+    ctx.lineWidth = ps.strokeWidth;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  }
+}
+
+/** Draw a template sheet into a canvas. `strokes` = Point[][] per CHAR_SLOTS index. */
 export function drawTemplate(
   canvas: HTMLCanvasElement,
-  strokes: Array<Array<{ x: number; y: number; pressure?: number }[] | null>>
+  strokes: Array<Array<Point[] | null>>
 ) {
   canvas.width = TEMPLATE_W;
   canvas.height = TEMPLATE_H;
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H);
+
+  // Header
+  ctx.fillStyle = "#52525b";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText("FontKu Template — All Characters", 16, 24);
+  ctx.font = "11px sans-serif";
+  ctx.fillText("Write one character per cell, touching the baseline", 16, 40);
 
   for (let i = 0; i < CHAR_SLOTS.length; i++) {
     const cell = cellForIndex(i);
@@ -74,8 +131,8 @@ export function drawTemplate(
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = color;
-      ctx.font = "6px sans-serif";
-      ctx.fillText(label, ox + 6, y - 2);
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillText(label, ox + 6, y - 3);
     };
     guide(CAP, "#10b981", "cap");
     guide(XH, "#3b82f6", "x");
@@ -84,31 +141,23 @@ export function drawTemplate(
 
     // slot label (top-left, light gray like the reference template)
     ctx.fillStyle = "#e4e4e7";
-    ctx.font = "bold 9px sans-serif";
-    ctx.fillText(cell.char, ox + 4, oy + 12);
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText(cell.char, ox + 4, oy + 14);
 
-    // strokes for this cell: 500 em-space → cell px, simple thick round lines
+    // strokes for this cell: 500 em-space → cell px, using perfect-freehand
     const cellStrokes = strokes[i];
     if (cellStrokes) {
-      ctx.strokeStyle = "#18181b";
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      const ps = useFontStore.getState().penSettings;
       for (const s of cellStrokes) {
         if (!s || s.length < 2) continue;
-        ctx.beginPath();
-        ctx.moveTo(ox + (s[0].x / EM) * CELL, oy + (s[0].y / EM) * CELL);
-        for (let j = 1; j < s.length; j++) {
-          ctx.lineTo(ox + (s[j].x / EM) * CELL, oy + (s[j].y / EM) * CELL);
-        }
-        ctx.stroke();
+        paintStroke(ctx, s, ox, oy, ps);
       }
     }
   }
 }
 
 /** Download a blank (or filled) template sheet as fontku-template.png. */
-export function downloadTemplate(strokes?: Array<Array<{ x: number; y: number; pressure?: number }[] | null>>) {
+export function downloadTemplate(strokes?: Array<Array<Point[] | null>>) {
   const canvas = document.createElement("canvas");
   drawTemplate(canvas, strokes ?? Array(CHAR_SLOTS.length).fill(null));
   canvas.toBlob((blob) => {
