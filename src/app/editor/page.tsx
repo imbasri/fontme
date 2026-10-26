@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Canvas } from "@/components/Canvas";
 import { Confetti } from "@/components/ui/confetti";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
-import { Pencil, Eraser, Waves, Feather, Settings, Download } from "lucide-react";
+import { downloadTemplate } from "@/lib/template-grid";
+import { importTemplate } from "@/lib/template-import";
+import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload } from "lucide-react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface GlyphInput {
@@ -36,6 +38,7 @@ export default function Editor() {
   const [previewMode, setPreviewModeState] = useState(false);
   const [showPenSettings, setShowPenSettings] = useState(false);
   const [hasGlyphs, setHasGlyphs] = useState(false);
+  const templateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setHasGlyphs(Object.values(glyphs).some(g => g.strokes.length > 0));
@@ -83,6 +86,18 @@ export default function Editor() {
       alert("Export failed");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleImportTemplate = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const result = await importTemplate(file);
+      setHasGlyphs(true);
+      alert(`Imported ${result.imported}/${result.total} glyphs from template`);
+    } catch (e) {
+      alert("Import failed: template not recognized");
+      console.error(e);
     }
   };
 
@@ -204,6 +219,27 @@ export default function Editor() {
             >
               <Download size={16} />
               <span className="tracking-tight">{exporting ? "Exporting..." : `Export`}</span>
+            </button>
+            <input
+              ref={templateInputRef}
+              type="file"
+              accept="image/png"
+              style={{ display: "none" }}
+              onChange={(e) => handleImportTemplate(e.target.files?.[0] ?? null)}
+            />
+            <button
+              onClick={() => templateInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
+            >
+              <Upload size={16} />
+              <span className="tracking-tight">Import Template</span>
+            </button>
+            <button
+              onClick={() => downloadTemplate()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
+            >
+              <Download size={16} />
+              <span className="tracking-tight">Download Template</span>
             </button>
           </div>
         </div>
