@@ -86,4 +86,49 @@ const w = CELL_W_INT, h = CELL_H_INT;
   if (!ok) process.exit(1);
 }
 
+// Test 4: "L" shape — one vertical stroke meeting one horizontal stroke at a corner.
+// The corner is a 2-neighbor junction (not a crossing), so skeleton must preserve it
+// as a single continuous path from top of vertical to right end of horizontal.
+{
+  const mask = new Uint8Array(w * h);
+  // Vertical bar: x=60, y=60..200, 5px thick
+  for (let y = 60; y <= 200; y++)
+    for (let dx = -2; dx <= 2; dx++) {
+      const x = 60 + dx;
+      if (x >= 0 && x < w) mask[y * w + x] = 1;
+    }
+  // Horizontal bar: y=200, x=60..200, 5px thick
+  for (let x = 60; x <= 200; x++)
+    for (let dy = -2; dy <= 2; dy++) {
+      const y = 200 + dy;
+      if (y >= 0 && y < h) mask[y * w + x] = 1;
+    }
+  const ok = test("L shape (corner)", mask, w, h);
+  if (!ok) process.exit(1);
+}
+
+// Test 5: "M" shape — two diagonal strokes meeting at a V in the middle.
+// The V junction is a 3-neighbor point; skeleton must keep it connected so the
+// traced path goes down, up, down, up (4 endpoints) as 1 component.
+{
+  const mask = new Uint8Array(w * h);
+  const thickDiag = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let t = 0; t <= 1; t += 0.005) {
+      const cx = Math.round(x0 + t * (x1 - x0));
+      const cy = Math.round(y0 + t * (y1 - y0));
+      for (let dx = -2; dx <= 2; dx++)
+        for (let dy = -2; dy <= 2; dy++) {
+          const px = cx + dx, py = cy + dy;
+          if (px >= 0 && py >= 0 && px < w && py < h) mask[py * w + px] = 1;
+        }
+    }
+  };
+  thickDiag(50, 60, 120, 200);   // left down
+  thickDiag(120, 200, 190, 60);  // middle up
+  thickDiag(190, 60, 260, 200);  // right down
+  thickDiag(260, 200, 330, 60);  // right up
+  const ok = test("M shape (V junctions)", mask, w, h);
+  if (!ok) process.exit(1);
+}
+
 console.log("\nALL PASS ✓");

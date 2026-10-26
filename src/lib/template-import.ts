@@ -43,15 +43,6 @@ export function getBinaryMask(
   return { mask, w, h };
 }
 
-function neighborCount(mask: Uint8Array, w: number, h: number, idx: number, x: number, y: number): number {
-  let n = 0;
-  for (const [dx, dy] of DIRS) {
-    const nx = x + dx, ny = y + dy;
-    if (nx >= 0 && ny >= 0 && nx < w && ny < h && mask[ny * w + nx]) n++;
-  }
-  return n;
-}
-
 /** Connected components (8-connectivity) → return array of Sets of linear indices. */
 export function labelComponents(mask: Uint8Array, w: number, h: number): Set<number>[] {
   const visited = new Uint8Array(w * h);
@@ -79,39 +70,141 @@ export function labelComponents(mask: Uint8Array, w: number, h: number): Set<num
   return comps;
 }
 
+/** Zhang-Suen thinning: reduce a component to a 1px-wide skeleton. Returns a new Set of indices. */
+function skeletonize(comp: Set<number>, w: number, h: number, mask: Uint8Array): Set<number> {
+  // Work on a copy
+  const skel = new Set<number>(comp);
+  const is = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && skel.has(y * w + x);
+
+  // 8-neighbors in clockwise order starting from top (P2..P9 around P1)
+  const nbrs = (x: number, y: number): [number, number][] => [
+    [x, y - 1], [x + 1, y - 1], [x + 1, y], [x + 1, y + 1],
+    [x, y + 1], [x - 1, y + 1], [x - 1, y], [x - 1, y - 1],
+  ];
+
+  const transitions = (x: number, y: number): number => {
+    const n = nbrs(x, y);
+    let t = 0;
+    for (let i = 0; i < 8; i++) {
+      if (!is(n[i][0], n[i][1]) && is(n[(i + 1) % 8][0], n[(i + 1) % 8][1])) t++;
+    }
+    return t;
+  };
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    // Sub-iteration 1: remove south-east boundary pixels
+    const toRemove: number[] = [];
+    for (const idx of skel) {
+      const x = idx % w, y = Math.floor(idx / w);
+      const n = nbrs(x, y);
+      const b = n.filter(([nx, ny]) => is(nx, ny)).length; // B(P1)
+      if (b < 2 || b > 6) continue;
+      // Preserve corner junctions: corner pixels have both vertical and horizontal neighbors
+      const p2 = is(n[0][0], n[0][1]), p4 = is(n[2][0], n[2][1]), p6 = is(n[4][0], n[4][1]), p8 = is(n[6][0], n[6][1]);
+      if ((p2 && p6) && (p4 && p8)) continue; // corner: vertical + horizontal meet
+      const a = transitions(x, y); // A(P1)
+      if (a !== 1) continue;
+      if (p2 && p4 && p6) continue;
+      if (p4 && p6 && p8) continue;
+      toRemove.push(idx);
+    }
+    for (const idx of toRemove) { skel.delete(idx); changed = true; }
+
+    // Sub-iteration 2: remove north-west boundary pixels
+    const toRemove2: number[] = [];
+    for (const idx of skel) {
+      const x = idx % w, y = Math.floor(idx / w);
+      const n = nbrs(x, y);
+      const b = n.filter(([nx, ny]) => is(nx, ny)).length;
+      if (b < 2 || b > 6) continue;
+      const p2 = is(n[0][0], n[0][1]), p4 = is(n[2][0], n[2][1]), p6 = is(n[4][0], n[4][1]), p8 = is(n[6][0], n[6][1]);
+      if ((p2 && p6) && (p4 && p8)) continue;
+      const a = transitions(x, y);
+      if (a !== 1) continue;
+      if (p2 && p4 && p8) continue;
+      if (p2 && p6 && p8) continue;
+      toRemove2.push(idx);
+    }
+    for (const idx of toRemove2) { skel.delete(idx); changed = true; }
+  }
+
+  return skel;
+}
+
 /** Greedy centerline traversal: start at an endpoint, follow the path. */
 export function traceComponent(comp: Set<number>, w: number, h: number, mask: Uint8Array): Point[] {
-  const has = (x: number, y: number) =>
-    x >= 0 && y >= 0 && x < w && y < h && mask[y * w + x] === 1;
+  // Skeletonize first so BFS traces the actual pen trajectory, not a shortcut across a thick blob
+  const skel = skeletonize(comp, w, h, mask);
+  const skelMask = new Uint8Array(w * h);
+  for (const idx of skel) skelMask[idx] = 1;
 
-  // Find endpoints (degree-1 pixels)
+  // Find endpoints (degree-1 pixels) on the skeleton
   const endpoints: [number, number][] = [];
-  for (const idx of comp) {
+  for (const idx of skel) {
     const x = idx % w, y = Math.floor(idx / w);
-    if (neighborCount(mask, w, h, idx, x, y) <= 1) {
-      endpoints.push([x, y]);
+    let deg = 0;
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < w && ny < h && skelMask[ny * w + nx]) deg++;
     }
+    if (deg <= 1) endpoints.push([x, y]);
   }
 
-  let start: [number, number];
-  if (endpoints.length >= 2) {
-    endpoints.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
-    start = endpoints[0];
-  } else if (endpoints.length === 1) {
-    start = endpoints[0];
-  } else {
-    let minIdx = Infinity, best: [number, number] = [0, 0];
-    for (const idx of comp) {
-      if (idx < minIdx) {
-        minIdx = idx;
-        best = [idx % w, Math.floor(idx / w)];
+  const startIdxs = endpoints.length
+    ? endpoints.map(([x, y]) => y * w + x)
+    : (() => {
+        // Closed loop — pick top-leftmost pixel
+        let minY = h, minX = w, idx = -1;
+        for (const i of skel) {
+          const x = i % w, y = Math.floor(i / w);
+          if (y < minY || (y === minY && x < minX)) { minY = y; minX = x; idx = i; }
+        }
+        return [idx];
+      })();
+
+  const path: Point[] = [];
+
+  // With exactly 2 endpoints (tree skeleton): longest path = BFS between the two endpoints
+  if (startIdxs.length === 2) {
+    const [a, b] = startIdxs;
+    // BFS from b, tracking parents; walk back to a for the full a→b path
+    const parent = new Int32Array(w * h).fill(-1);
+    const distB = new Int32Array(w * h).fill(-1);
+    const q2: number[] = [b];
+    distB[b] = 0;
+    for (let head = 0; head < q2.length; head++) {
+      const cur = q2[head];
+      const cx = cur % w, cy = Math.floor(cur / w);
+      for (const [dx, dy] of DIRS) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const nidx = ny * w + nx;
+        if (!skelMask[nidx] || distB[nidx] >= 0) continue;
+        distB[nidx] = distB[cur] + 1;
+        parent[nidx] = cur;
+        q2.push(nidx);
       }
     }
-    start = best;
+    // Walk from a following parents toward b
+    let cur = a;
+    while (cur >= 0) {
+      path.push({ x: cur % w, y: Math.floor(cur / w) });
+      cur = parent[cur];
+    }
+    // `a` reached `b` via parent walk → path is a→...→b already
+    return path;
   }
 
-  // BFS from start to farthest endpoint → longest centerline path
-  const startIdx = start[1] * w + start[0];
+  // Closed loop or 3+ endpoints: pick topmost endpoint (or top-leftmost pixel), BFS to farthest
+  let startIdx: number;
+  if (startIdxs.length > 0) {
+    startIdx = startIdxs[0];
+  } else {
+    startIdx = Array.from(skel)[0];
+  }
   const dist = new Int32Array(w * h).fill(-1);
   const parent = new Int32Array(w * h).fill(-1);
   const queue: number[] = [startIdx];
@@ -125,32 +218,26 @@ export function traceComponent(comp: Set<number>, w: number, h: number, mask: Ui
       const nx = cx + dx, ny = cy + dy;
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
       const nidx = ny * w + nx;
-      if (!mask[nidx] || dist[nidx] >= 0) continue;
+      if (!skelMask[nidx] || dist[nidx] >= 0) continue;
       dist[nidx] = dist[cur] + 1;
       parent[nidx] = cur;
       queue.push(nidx);
     }
   }
 
-  // Find farthest pixel from start (prefer endpoints, fall back to all visited pixels)
   let farthest = startIdx, maxDist = 0;
-  for (const [ex, ey] of endpoints) {
-    const eidx = ey * w + ex;
-    if (dist[eidx] > maxDist) { maxDist = dist[eidx]; farthest = eidx; }
+  for (const idx of startIdxs) {
+    if (dist[idx] > maxDist) { maxDist = dist[idx]; farthest = idx; }
   }
   if (maxDist === 0) {
-    // No degree-1 pixels found; use any BFS-reachable pixel farthest from start
-    for (const idx of comp) {
+    for (const idx of skel) {
       if (dist[idx] > maxDist) { maxDist = dist[idx]; farthest = idx; }
     }
   }
 
-  // Reconstruct path: farthest → start, then reverse
-  const path: Point[] = [];
   let cur = farthest;
   while (cur >= 0) {
-    const cx = cur % w, cy = Math.floor(cur / w);
-    path.push({ x: cx, y: cy });
+    path.push({ x: cur % w, y: Math.floor(cur / w) });
     cur = parent[cur];
   }
   path.reverse();
