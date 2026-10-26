@@ -148,21 +148,19 @@ export default function Editor() {
         </div>
       </header>
 
-      <div className="flex flex-row flex-1 overflow-hidden min-h-0">
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
         {/* Tools topbar */}
-        <div className="flex-1 flex items-center justify-center p-2 bg-white dark:bg-zinc-900">
-          <div className="flex gap-4 flex-wrap justify-center w-full max-w-xs">
-            {TOOLS.map(({ label, key, icon }) => (
-              <button
-                key={key}
-                onClick={() => toggleTool(key)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all shadow-sm ${getToolStyle(key)}`}
-              >
-                <span className="text-sm">{icon}</span>
-                <span className="text-[10px] font-medium tracking-tight uppercase">{label}</span>
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
+          {TOOLS.map(({ label, key, icon }) => (
+            <button
+              key={key}
+              onClick={() => toggleTool(key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm ${getToolStyle(key)}`}
+            >
+              <span className="text-sm">{icon}</span>
+              <span className="text-[10px] font-medium tracking-tight uppercase">{label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Canvas area */}
