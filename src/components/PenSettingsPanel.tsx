@@ -107,7 +107,7 @@ export function PenSettingsPanel({ isOpen, onClose }: PenSettingsPanelProps) {
             {slider("Thinning", -0.99, 0.99, 0.01, penSettings.thinning, (v) => updatePenSettings({ thinning: v }), (v) => v.toFixed(2))}
             {slider("Streamline", 0.01, 0.99, 0.01, penSettings.streamline, (v) => updatePenSettings({ streamline: v }), (v) => v.toFixed(2))}
             {slider("Smoothing", 0.01, 0.99, 0.01, penSettings.smoothing, (v) => updatePenSettings({ smoothing: v }), (v) => v.toFixed(2))}
-            {selectEasing("Easing", penSettings.easing, (v) => updatePenSettings({ easing: v }))}
+            {selectEasing("Stroke Easing", penSettings.easing, (v) => updatePenSettings({ easing: v }))}
           </div>
         </section>
 
@@ -116,7 +116,7 @@ export function PenSettingsPanel({ isOpen, onClose }: PenSettingsPanelProps) {
           <div className="space-y-4">
             {slider("Taper", 0, 100, 1, penSettings.taperStart, (v) => updatePenSettings({ taperStart: Math.round(v) }))}
             {checkbox("Cap", penSettings.capStart, (v) => updatePenSettings({ capStart: v }), penSettings.taperStart > 0)}
-            {penSettings.taperStart > 0 && selectEasing("Easing", penSettings.easingStart, (v) => updatePenSettings({ easingStart: v }))}
+            {penSettings.taperStart > 0 && selectEasing("Start Taper Easing", penSettings.easingStart, (v) => updatePenSettings({ easingStart: v }))}
           </div>
         </section>
 
@@ -125,7 +125,7 @@ export function PenSettingsPanel({ isOpen, onClose }: PenSettingsPanelProps) {
           <div className="space-y-4">
             {slider("Taper", 0, 100, 1, penSettings.taperEnd, (v) => updatePenSettings({ taperEnd: Math.round(v) }))}
             {checkbox("Cap", penSettings.capEnd, (v) => updatePenSettings({ capEnd: v }), penSettings.taperEnd > 0)}
-            {penSettings.taperEnd > 0 && selectEasing("Easing", penSettings.easingEnd, (v) => updatePenSettings({ easingEnd: v }))}
+            {penSettings.taperEnd > 0 && selectEasing("End Taper Easing", penSettings.easingEnd, (v) => updatePenSettings({ easingEnd: v }))}
           </div>
         </section>
 
