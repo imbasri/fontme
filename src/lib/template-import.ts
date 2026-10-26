@@ -5,7 +5,7 @@
 
 import { useFontStore, Point } from "@/store/fontStore";
 import { CHAR_SLOTS } from "./charset";
-import { cellForIndex, CELL_W, CELL_H, TEMPLATE_W, TEMPLATE_H, EM } from "./template-grid";
+import { cellForIndex, CELL_W, CELL_H, TEMPLATE_W, TEMPLATE_H, EM, TEMPLATE_COLS, TEMPLATE_ROWS } from "./template-grid";
 
 const DARK_THRESHOLD = 200; // pixel brightness below this = ink
 
@@ -29,36 +29,30 @@ async function loadPngToCanvas(file: File): Promise<HTMLCanvasElement> {
 
 /** Load a PDF file into a canvas of exact template size using pdfjs-dist. */
 async function loadPdfToCanvas(file: File): Promise<HTMLCanvasElement> {
-  const pdfjs = await import("pdfjs-dist");
-  const pdfjsLib = pdfjs.default ?? pdfjs;
-
-  // Set up worker from CDN (avoids bundling the separate worker file)
-  const workerSrc = "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerSrc;
+  // Use the ESM build (standalone, not legacy) with global worker config
+  const pdfjsLib = await import("pdfjs-dist");
+  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
   const page = await pdf.getPage(1);
 
-  // Render at template size
-  const viewport = page.getViewport({ scale: TEMPLATE_W / 612 });
+  // Render at template width; scale = TEMPLATE_W / native page width
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = TEMPLATE_W / baseViewport.width;
+  const viewport = page.getViewport({ scale });
+
   const canvas = document.createElement("canvas");
   canvas.width = TEMPLATE_W;
-  canvas.height = Math.round(viewport.height * (TEMPLATE_H / viewport.height));
+  canvas.height = Math.round(viewport.height);
 
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
-  const renderTask = page.render({
-    canvasContext: ctx,
-    viewport,
-    canvas,
-  });
-  await renderTask.promise;
-
-  // If PDF is slightly different size, resize to exact template dimensions
-  if (canvas.width !== TEMPLATE_W || canvas.height !== TEMPLATE_H) {
+  // Normalize height to TEMPLATE_H if PDF aspect differs slightly
+  if (canvas.height !== TEMPLATE_H) {
     const out = document.createElement("canvas");
     out.width = TEMPLATE_W;
     out.height = TEMPLATE_H;
@@ -68,7 +62,6 @@ async function loadPdfToCanvas(file: File): Promise<HTMLCanvasElement> {
     outCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, TEMPLATE_W, TEMPLATE_H);
     return out;
   }
-
   return canvas;
 }
 
