@@ -111,12 +111,13 @@ function decimate(pts: Point[], step = 4): Point[] {
   return out;
 }
 
-export async function importTemplate(file: File): Promise<{ imported: number; total: number }> {
+export async function importTemplate(file: File): Promise<{ imported: number; total: number; importedGlyphs: string[] }> {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   const canvas = isPdf ? await loadPdfToCanvas(file) : await loadPngToCanvas(file);
 
   const { glyphs } = useFontStore.getState();
   let imported = 0;
+  const importedGlyphs: string[] = [];
 
   CHAR_SLOTS.forEach((slot, i) => {
     const cell = cellForIndex(i);
@@ -136,8 +137,9 @@ export async function importTemplate(file: File): Promise<{ imported: number; to
       },
     }));
     imported++;
+    importedGlyphs.push(slot.char);
   });
 
   void glyphs; // keep lint quiet about unused destructure
-  return { imported, total: CHAR_SLOTS.length };
+  return { imported, total: CHAR_SLOTS.length, importedGlyphs };
 }

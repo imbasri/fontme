@@ -93,10 +93,17 @@ export default function Editor() {
     if (!file) return;
     try {
       const result = await importTemplate(file);
-      setHasGlyphs(true);
-      alert(`Imported ${result.imported}/${result.total} glyphs from template`);
+      setHasGlyphs(result.imported > 0);
+      if (result.imported === 0) {
+        alert("No ink detected in any cell. Check that the template was filled with dark ink and re-scan/photograph at good contrast.");
+        return;
+      }
+      const list = result.importedGlyphs.length > 20
+        ? result.importedGlyphs.slice(0, 20).join(" ") + ` … (${result.importedGlyphs.length} total)`
+        : result.importedGlyphs.join(" ");
+      alert(`Imported ${result.imported}/${result.total} glyphs:\n\n${list}\n\nOpen the character slots panel to review each glyph.`);
     } catch (e) {
-      alert("Import failed: template not recognized");
+      alert("Import failed: template not recognized\n" + (e instanceof Error ? e.message : String(e)));
       console.error(e);
     }
   };
