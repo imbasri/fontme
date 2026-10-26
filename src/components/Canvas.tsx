@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFontStore, Point } from "@/store/fontStore";
+import { getStroke } from "perfect-freehand";
 
 // 500-unit em space, y-down (y=0=atas, y=500=bawah). cap=10, xHeight=110, baseline=360, descender=475
 const EM = 500;
@@ -78,19 +79,12 @@ export function Canvas() {
       // Eraser: clear current stroke
       setIsDrawing(false);
       clearCurrentStroke();
-    } else if (activeTool === "halus") {
-      // Halus: toggle smoothing (could be implemented in paintStroke or add smoothing logic)
-      // For now, just visual feedback - maybe add a smoothed version of stroke
-      // This is a placeholder - actual smoothing would need more complex algorithm
-      console.log("Halus mode activated");
-    } else if (activeTool === "stylus") {
-      // Stylus: handwriting feel - could modify stroke rendering
-      // For now, just use normal drawing but maybe different color or style
     }
     
-    // Default behavior for pen/stylus
-    if (activeTool === "pen" || activeTool === "stylus") {
+// Pen/halus/stylus: start stroke; smoothing & stylus pressure handled in addPoint
+    if (activeTool === "pen" || activeTool === "halus" || activeTool === "stylus") {
       const { x, y } = toEmCoord(e.clientX, e.clientY);
+      const pressure = activeTool === "stylus" ? (e.pressure || 0.5) : 0.5;
       startStroke(x, y);
       setIsDrawing(true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -100,7 +94,7 @@ export function Canvas() {
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing || isPreviewMode) return;
     const { x, y } = toEmCoord(e.clientX, e.clientY);
-    addPoint(x, y);
+    addPoint(x, y, e.pressure);
   };
 
   const onPointerUp = () => {
@@ -166,13 +160,24 @@ export function Canvas() {
     if (pts.length < 2) return;
     ctx.setLineDash([]);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.stroke();
+    const getStrokeWidth = (p: Point) => {
+      const pressure = p.pressure ?? 0.5;
+      return pressure === 0.5 ? 3 : Math.max(1.5, Math.min(6, 3 * pressure * 1.5));
+    };
+    // Use perfect-freehand to generate outline points for smooth strokes
+    const outlinePts = getStroke(
+      pts.map((p) => [p.x, p.y, p.pressure ?? 0.5] as [number, number, number]),
+      { size: 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5, simulatePressure: true }
+    );
+    for (let i = 1; i < outlinePts.length; i++) {
+      ctx.beginPath();
+      ctx.moveTo(outlinePts[i - 1][0], outlinePts[i - 1][1]);
+      ctx.lineTo(outlinePts[i][0], outlinePts[i][1]);
+      ctx.lineWidth = getStrokeWidth({ x: outlinePts[i][0], y: outlinePts[i][1] });
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    }
   };
 
   // Normal render

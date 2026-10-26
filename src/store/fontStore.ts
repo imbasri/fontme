@@ -1,9 +1,12 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 
+import { getStroke } from "perfect-freehand";
+
 export interface Point {
   x: number;
   y: number;
+  pressure?: number;
 }
 
 export interface Glyph {
@@ -29,7 +32,7 @@ interface FontState {
   activeTool: "pen" | "hapus" | "eraser" | "halus" | "stylus";
 
   startStroke: (x: number, y: number) => void;
-  addPoint: (x: number, y: number) => void;
+  addPoint: (x: number, y: number, pressure?: number) => void;
   endStroke: () => void;
   selectGlyph: (codepoint: number) => void;
   setGuidelines: (baseline: number, xHeight: number, capHeight: number, descender: number) => void;
@@ -68,16 +71,34 @@ export const useFontStore = create<FontState>()(
         activeTool: "pen",
 
         startStroke: (x, y) => {
-          set({ currentStroke: [{ x, y }], isRecording: true });
+          set({ currentStroke: [{ x, y, pressure: 0.5 }], isRecording: true });
         },
 
-        addPoint: (x, y) => {
-          const { currentStroke } = get();
-          if (!currentStroke.length) return;
+        addPoint: (x, y, pressure) => {
+          const { currentStroke, activeTool } = get();
+          if (!currentStroke.length) {
+            set({ currentStroke: [{ x, y, pressure: pressure ?? 0.5 }] });
+            return;
+          }
           const last = currentStroke[currentStroke.length - 1];
           // Skip duplicate points to keep payload small
           if (Math.abs(last.x - x) < 0.5 && Math.abs(last.y - y) < 0.5) return;
-          set({ currentStroke: [...currentStroke, { x, y }] });
+          // Smoothing: EMA blend — 0 = new point (raw), 1 = fully smoothed to last point.
+          // pen → 0 (raw/responsive), halus → adaptive Atrament-style, stylus → 0.3 (light)
+          let smoothAmt: number;
+          if (activeTool === "halus") {
+            // Atrament-style: smoothing=0.85, adaptive by distance (fast motion → less smoothing)
+            const dist = Math.hypot(x - last.x, y - last.y);
+            const adaptive = 0.85 + (dist - 60) / 3000;
+            smoothAmt = Math.min(0.87, adaptive);
+          } else if (activeTool === "stylus") {
+            smoothAmt = 0.3;
+          } else {
+            smoothAmt = 0;
+          }
+          const newX = last.x + (x - last.x) * (1 - smoothAmt);
+          const newY = last.y + (y - last.y) * (1 - smoothAmt);
+          set({ currentStroke: [...currentStroke, { x: newX, y: newY, pressure: pressure ?? 0.5 }] });
         },
 
         endStroke: () => {
