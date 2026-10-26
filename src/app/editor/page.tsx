@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Canvas } from "@/components/Canvas";
 import { Confetti } from "@/components/ui/confetti";
 import { BorderBeam } from "@/components/ui/border-beam";
-import { TextPreview } from "@/components/TextPreview";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
@@ -281,12 +280,6 @@ export default function Editor() {
               </div>
             </div>
 
-            <div>
-              <h2 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                Live Preview
-              </h2>
-              <TextPreview />
-            </div>
           </aside>
         </div>
 
