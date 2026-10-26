@@ -73,11 +73,11 @@ export default function Editor() {
     }
   };
 
-  const TOOLS: Array<{ label: string; key: "pen" | "eraser" | "halus" | "stylus"; icon: React.ReactNode }> = [
-    { label: "Pen", key: "pen", icon: <Pencil size={16} /> },
-    { label: "Eraser", key: "eraser", icon: <Eraser size={16} /> },
-    { label: "Halus", key: "halus", icon: <Waves size={16} /> },
-    { label: "Stylus", key: "stylus", icon: <Feather size={16} /> },
+  const TOOLS: Array<{ label: string; key: "pen" | "eraser" | "halus" | "stylus"; tooltip: string; icon: React.ReactNode }> = [
+    { label: "Pen", key: "pen", tooltip: "Raw, responsive — no smoothing", icon: <Pencil size={16} /> },
+    { label: "Eraser", key: "eraser", tooltip: "Delete nearest stroke under cursor", icon: <Eraser size={16} /> },
+    { label: "Halus", key: "halus", tooltip: "Heavy adaptive smoothing (Atrament-style)", icon: <Waves size={16} /> },
+    { label: "Stylus", key: "stylus", tooltip: "Light smoothing, balanced flow", icon: <Feather size={16} /> },
   ];
 
   // Active tool gets strong background + border; inactive gets muted neutral
@@ -133,10 +133,11 @@ export default function Editor() {
         {/* Tools topbar */}
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 h-14">
           <div className="flex items-center gap-3">
-            {TOOLS.map(({ label, key, icon }) => (
+            {TOOLS.map(({ label, key, icon, tooltip }) => (
               <button
                 key={key}
                 onClick={() => toggleTool(key)}
+                title={tooltip}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 transition-all text-sm font-medium ${getToolStyle(key)}`}
               >
                 <span>{icon}</span>
