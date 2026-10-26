@@ -66,7 +66,7 @@ export function Canvas() {
           const dx = glyph.strokes[i][j].x - x;
           const dy = glyph.strokes[i][j].y - y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < minDist && dist < 8) {
+          if (dist < minDist && dist < 15) {
             minDist = dist;
             targetStrokeIdx = i;
             targetPointIdx = j;
@@ -79,7 +79,7 @@ export function Canvas() {
           si === targetStrokeIdx
             ? s.filter((_, pi) => pi !== targetPointIdx)
             : s
-        ).filter(s => s.length > 0);
+        ).filter(s => s.length >= 2);
 
         useFontStore.setState({
           glyphs: {
@@ -89,7 +89,7 @@ export function Canvas() {
         });
       }
     } else if (activeTool === "eraser") {
-      // Eraser: delete entire stroke under cursor
+      // Eraser: delete entire stroke whose nearest point is under cursor
       const { x, y } = toEmCoord(e.clientX, e.clientY);
       if (!activeCodepoint) return;
       const glyph = glyphs[activeCodepoint];
@@ -99,15 +99,16 @@ export function Canvas() {
       let minDist = Infinity;
 
       for (let i = 0; i < glyph.strokes.length; i++) {
-        // Check distance to stroke centroid
         const stroke = glyph.strokes[i];
         if (stroke.length === 0) continue;
-        const cx = stroke.reduce((sum, p) => sum + p.x, 0) / stroke.length;
-        const cy = stroke.reduce((sum, p) => sum + p.y, 0) / stroke.length;
-        const dist = Math.hypot(cx - x, cy - y);
-        if (dist < minDist && dist < 20) {
-          minDist = dist;
-          targetStrokeIdx = i;
+        for (let j = 0; j < stroke.length; j++) {
+          const dx = stroke[j].x - x;
+          const dy = stroke[j].y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < minDist && dist < 15) {
+            minDist = dist;
+            targetStrokeIdx = i;
+          }
         }
       }
 
@@ -134,6 +135,7 @@ export function Canvas() {
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing || isPreviewMode) return;
+    if (activeTool === "hapus" || activeTool === "eraser") return;
     const { x, y } = toEmCoord(e.clientX, e.clientY);
     addPoint(x, y, e.pressure);
   };
