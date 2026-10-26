@@ -1,14 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Canvas } from "@/components/Canvas";
 import { Confetti } from "@/components/ui/confetti";
 import { BorderBeam } from "@/components/ui/border-beam";
-import { useState, useRef } from "react";
-import { Canvas } from "@/components/Canvas";
 import { TextPreview } from "@/components/TextPreview";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
-import { Pencil, Trash2, Eraser, Waves, Feather, Settings } from "lucide-react";
+import { Pencil, Eraser, Waves, Feather, Settings, Download } from "lucide-react";
 
 interface GlyphInput {
   codepoint: number;
@@ -18,7 +18,6 @@ interface GlyphInput {
 
 export default function Editor() {
   const {
-    glyphs,
     activeCodepoint,
     selectGlyph,
     reset,
@@ -31,12 +30,19 @@ export default function Editor() {
     setActiveTool,
   } = useFontStore();
 
+  const { glyphs } = useFontStore();
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<"gfont" | "ttf">("ttf");
   const [previewMode, setPreviewModeState] = useState(false);
   const [showPenSettings, setShowPenSettings] = useState(false);
+  const [hasGlyphs, setHasGlyphs] = useState(false);
+
+  useEffect(() => {
+    setHasGlyphs(Object.values(glyphs).some(g => g.strokes.length > 0));
+  }, [glyphs]);
 
   const handleExport = async () => {
+    if (!hasGlyphs) return;
     setExporting(true);
     try {
       const glyphInputs: GlyphInput[] =
@@ -67,6 +73,11 @@ export default function Editor() {
       a.download = `fontku.${exportFormat}`;
       a.click();
       window.URL.revokeObjectURL(url);
+
+      // Fire confetti on successful export
+      import("canvas-confetti").then(({ default: confetti }) =>
+        confetti({ particleCount: 100, spread: 100, origin: { y: 0.7 } })
+      );
     } catch (e) {
       console.error(e);
       alert("Export failed");
@@ -181,6 +192,14 @@ export default function Editor() {
             >
               Clear All
             </button>
+            <button
+              onClick={handleExport}
+              disabled={!hasGlyphs || exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 bg-blue-600 text-white border-blue-600 hover:bg-blue-500 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              <Download size={16} />
+              <span className="tracking-tight">{exporting ? "Exporting..." : `Export .${exportFormat}`}</span>
+            </button>
           </div>
         </div>
 
@@ -209,6 +228,7 @@ export default function Editor() {
               </button>
             </div>
             <div className="relative w-full max-w-[min(600px,calc(100vh-240px))] aspect-square rounded-md shadow-sm">
+              <BorderBeam size={50} colorFrom="#10b981" colorTo="#3b82f6" borderWidth={2} />
               <Canvas />
               {activeCodepoint && (
                 <div className="absolute top-3 left-3 px-2.5 py-1.5 text-sm font-mono bg-black/50 text-white rounded">
