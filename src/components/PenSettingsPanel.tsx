@@ -1,303 +1,159 @@
 "use client";
 
 import { useFontStore } from "@/store/fontStore";
-import { EASING_KEYS } from "@/lib/easings";
-import { X } from "lucide-react";
+import { EASING_KEYS, getEasingFunction } from "@/lib/easings";
+import { X, ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PenSettingsPanelProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
 }
 
-export function PenSettingsPanel({ open, onClose }: PenSettingsPanelProps) {
+export function PenSettingsPanel({ isOpen, onClose }: PenSettingsPanelProps) {
   const { penSettings, updatePenSettings, resetPenSettings } = useFontStore();
 
-  if (!open) return null;
+  const slider = (name: string, min: number, max: number, step: number, value: number, onChange: (v: number) => void, format?: (v: number) => string) => (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs font-medium text-zinc-700 dark:text-zinc-200">
+        <span>{name}</span>
+        <span className="font-mono text-blue-600 dark:text-blue-400">{format ? format(value) : value}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onDoubleClick={() => resetPenSettings()}
+        className="w-full h-2 appearance-none bg-zinc-200 dark:bg-zinc-700 rounded-lg cursor-pointer accent-blue-600 dark:accent-blue-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-zinc-300 [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-zinc-300"
+      />
+    </div>
+  );
+
+  const selectEasing = (label: string, value: string, onChange: (v: string) => void) => (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 cursor-pointer"
+      >
+        {EASING_KEYS.map((key) => (
+          <option key={key} value={key}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const checkbox = (label: string, checked: boolean, onChange: (v: boolean) => void, disabled = false) => (
+    <label className={cn("flex items-center justify-between text-xs", disabled && "opacity-50 cursor-not-allowed")}>
+      <span className="text-zinc-700 dark:text-zinc-200">{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 accent-blue-600 dark:accent-blue-400 disabled:cursor-not-allowed"
+      />
+    </label>
+  );
+
+  const colorPicker = (label: string, value: string, onChange: (v: string) => void) => (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-200">{label}</label>
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-600 p-1 cursor-pointer bg-transparent"
+      />
+    </div>
+  );
+
+  const section = (title: string, children: React.ReactNode) => (
+    <div className="space-y-4">
+      <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{title}</h3>
+      <div className="space-y-4 pt-2 border-t border-zinc-200 dark:border-zinc-700">{children}</div>
+    </div>
+  );
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/30 dark:bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-          <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pen Settings</h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
-          {/* Stroke Settings */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Size
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={100}
-                step={1}
-                value={penSettings.size}
-                onChange={(e) => updatePenSettings({ size: parseInt(e.target.value, 10) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>1</span>
-                <span>{penSettings.size}</span>
-                <span>100</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Thinning
-              </label>
-              <input
-                type="range"
-                min={-0.99}
-                max={0.99}
-                step={0.01}
-                value={penSettings.thinning}
-                onChange={(e) => updatePenSettings({ thinning: parseFloat(e.target.value) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>-0.99</span>
-                <span>{penSettings.thinning.toFixed(2)}</span>
-                <span>0.99</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Streamline
-              </label>
-              <input
-                type="range"
-                min={0.01}
-                max={0.99}
-                step={0.01}
-                value={penSettings.streamline}
-                onChange={(e) => updatePenSettings({ streamline: parseFloat(e.target.value) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>0.01</span>
-                <span>{penSettings.streamline.toFixed(2)}</span>
-                <span>0.99</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Smoothing
-              </label>
-              <input
-                type="range"
-                min={0.01}
-                max={0.99}
-                step={0.01}
-                value={penSettings.smoothing}
-                onChange={(e) => updatePenSettings({ smoothing: parseFloat(e.target.value) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>0.01</span>
-                <span>{penSettings.smoothing.toFixed(2)}</span>
-                <span>0.99</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Easing
-              </label>
-              <select
-                value={penSettings.easing}
-                onChange={(e) => updatePenSettings({ easing: e.target.value })}
-                className="w-full text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-              >
-                {EASING_KEYS.map((key) => (
-                  <option key={key} value={key}>{key}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Start Settings */}
-          <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
-            <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-200">Start</h3>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Taper Start
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={penSettings.taperStart}
-                onChange={(e) => updatePenSettings({ taperStart: parseInt(e.target.value, 10) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>0</span>
-                <span>{penSettings.taperStart}</span>
-                <span>100</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-zinc-700 dark:text-zinc-200">Cap Start</label>
-              <input
-                type="checkbox"
-                checked={penSettings.capStart}
-                onChange={(e) => updatePenSettings({ capStart: e.target.checked })}
-                disabled={penSettings.taperStart > 0}
-                className="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            {penSettings.taperStart > 0 && (
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                  Easing Start
-                </label>
-                <select
-                  value={penSettings.easingStart}
-                  onChange={(e) => updatePenSettings({ easingStart: e.target.value })}
-                  className="w-full text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-                >
-                  {EASING_KEYS.map((key) => (
-                    <option key={key} value={key}>{key}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* End Settings */}
-          <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
-            <h3 className="text-xs font-medium text-zinc-700 dark:text-zinc-200">End</h3>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Taper End
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={penSettings.taperEnd}
-                onChange={(e) => updatePenSettings({ taperEnd: parseInt(e.target.value, 10) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>0</span>
-                <span>{penSettings.taperEnd}</span>
-                <span>100</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-zinc-700 dark:text-zinc-200">Cap End</label>
-              <input
-                type="checkbox"
-                checked={penSettings.capEnd}
-                onChange={(e) => updatePenSettings({ capEnd: e.target.checked })}
-                disabled={penSettings.taperEnd > 0}
-                className="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            {penSettings.taperEnd > 0 && (
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                  Easing End
-                </label>
-                <select
-                  value={penSettings.easingEnd}
-                  onChange={(e) => updatePenSettings({ easingEnd: e.target.value })}
-                  className="w-full text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-                >
-                  {EASING_KEYS.map((key) => (
-                    <option key={key} value={key}>{key}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Fill Settings */}
-          <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-zinc-700 dark:text-zinc-200">Fill</label>
-              <input
-                type="checkbox"
-                checked={penSettings.isFilled}
-                onChange={(e) => updatePenSettings({ isFilled: e.target.checked })}
-                className="w-4 h-4 rounded border border-zinc-300 dark:border-zinc-600 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Fill Color
-              </label>
-              <input
-                type="color"
-                value={penSettings.fill}
-                onChange={(e) => updatePenSettings({ fill: e.target.value })}
-                className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-600 p-1 cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Stroke Width
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={penSettings.strokeWidth}
-                onChange={(e) => updatePenSettings({ strokeWidth: parseInt(e.target.value, 10) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                <span>0</span>
-                <span>{penSettings.strokeWidth}</span>
-                <span>100</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-200 mb-1.5">
-                Stroke Color
-              </label>
-              <input
-                type="color"
-                value={penSettings.strokeColor}
-                onChange={(e) => updatePenSettings({ strokeColor: e.target.value })}
-                className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-600 p-1 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Reset button */}
-          <button
-            onClick={resetPenSettings}
-            className="w-full mt-6 px-4 py-2 text-sm font-medium text-center text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-600"
-          >
-            Reset to Defaults
-          </button>
-        </div>
+    <aside className={cn(
+      "fixed inset-y-0 left-0 z-40 w-72 bg-white dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 flex flex-col transition-transform duration-200 ease-out",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
+        <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pen Settings</h2>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+          aria-label="Close settings"
+        >
+          <X size={18} />
+        </button>
       </div>
-    </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Stroke Settings */}
+        <section title="Stroke">
+          <div className="space-y-4">
+            {slider("Size", 1, 100, 1, penSettings.size, (v) => updatePenSettings({ size: Math.round(v) }))}
+            {slider("Thinning", -0.99, 0.99, 0.01, penSettings.thinning, (v) => updatePenSettings({ thinning: v }), (v) => v.toFixed(2))}
+            {slider("Streamline", 0.01, 0.99, 0.01, penSettings.streamline, (v) => updatePenSettings({ streamline: v }), (v) => v.toFixed(2))}
+            {slider("Smoothing", 0.01, 0.99, 0.01, penSettings.smoothing, (v) => updatePenSettings({ smoothing: v }), (v) => v.toFixed(2))}
+            {selectEasing("Easing", penSettings.easing, (v) => updatePenSettings({ easing: v }))}
+          </div>
+        </section>
+
+        {/* Start Settings */}
+        <section title="Start">
+          <div className="space-y-4">
+            {slider("Taper", 0, 100, 1, penSettings.taperStart, (v) => updatePenSettings({ taperStart: Math.round(v) }))}
+            {checkbox("Cap", penSettings.capStart, (v) => updatePenSettings({ capStart: v }), penSettings.taperStart > 0)}
+            {penSettings.taperStart > 0 && selectEasing("Easing", penSettings.easingStart, (v) => updatePenSettings({ easingStart: v }))}
+          </div>
+        </section>
+
+        {/* End Settings */}
+        <section title="End">
+          <div className="space-y-4">
+            {slider("Taper", 0, 100, 1, penSettings.taperEnd, (v) => updatePenSettings({ taperEnd: Math.round(v) }))}
+            {checkbox("Cap", penSettings.capEnd, (v) => updatePenSettings({ capEnd: v }), penSettings.taperEnd > 0)}
+            {penSettings.taperEnd > 0 && selectEasing("Easing", penSettings.easingEnd, (v) => updatePenSettings({ easingEnd: v }))}
+          </div>
+        </section>
+
+        {/* Fill / Stroke Settings */}
+        <section title="Fill & Stroke">
+          <div className="space-y-4">
+            {checkbox("Fill", penSettings.isFilled, (v) => updatePenSettings({ isFilled: v }))}
+            {penSettings.isFilled && colorPicker("Fill Color", penSettings.fill, (v) => updatePenSettings({ fill: v }))}
+            {slider("Stroke Width", 0, 100, 1, penSettings.strokeWidth, (v) => updatePenSettings({ strokeWidth: Math.round(v) }))}
+            {colorPicker("Stroke Color", penSettings.strokeColor, (v) => updatePenSettings({ strokeColor: v }))}
+          </div>
+        </section>
+
+        {/* Reset */}
+        <button
+          onClick={resetPenSettings}
+          className="w-full px-4 py-2.5 text-sm font-medium text-center text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors"
+        >
+          Reset to Defaults
+        </button>
+      </div>
+
+      {/* Overlay backdrop for mobile */}
+      <div
+        className="fixed inset-0 bg-black/30 dark:bg-black/50 z-[-1] lg:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+    </aside>
   );
 }
