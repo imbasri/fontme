@@ -81,16 +81,11 @@ export default function Editor() {
     { label: "Stylus", key: "stylus", icon: <Feather size={16} /> },
   ];
 
-  const TOOL_COLOR: Record<string, string> = {
-    pen: "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30",
-    hapus: "border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30",
-    eraser: "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30",
-    halus: "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30",
-    stylus: "border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30",
-  };
-
+  // Active tool gets strong background + border; inactive gets muted neutral
   const getToolStyle = (key: string) =>
-    TOOL_COLOR[key];
+    key === activeTool
+      ? "border-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-md"
+      : "border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500";
 
   const toggleTool = (tool: "pen" | "hapus" | "eraser" | "halus" | "stylus") =>
     setActiveTool(tool);
@@ -231,15 +226,18 @@ export default function Editor() {
                   <button
                     key={slot.codepoint}
                     onClick={() => selectGlyph(slot.codepoint)}
-                    className={`w-10 h-10 rounded-md text-sm font-medium transition-colors flex items-center justify-center ${
+                    className={`w-10 h-10 rounded-md text-sm font-medium transition-colors flex items-center justify-center relative ${
                       isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-blue-600 text-white ring-2 ring-blue-400"
                         : hasGlyph
-                          ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+                          ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600 ring-1 ring-green-400"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                     }`}
                   >
                     {slot.char}
+                    {hasGlyph && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full border border-white dark:border-zinc-900" />
+                    )}
                   </button>
                 );
               })}
