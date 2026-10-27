@@ -6,7 +6,7 @@ import { getStroke } from "perfect-freehand";
 import { getEasingFunction } from "@/lib/easings";
 
 const EM = 500;
-const VIEW_PX = 300;     // magnified view size
+const VIEW_PX = 180;     // magnified view size
 const MINIMAP_PX = 120;  // minimap size
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 5;
