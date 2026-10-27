@@ -9,8 +9,9 @@ import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
 import { downloadTemplatePdf } from "@/lib/template-grid";
 import { importTemplate } from "@/lib/template-import";
-import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload } from "lucide-react";
+import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload, Search } from "lucide-react";
 import { GuidelinesInfo } from "@/components/GuidelinesInfo";
+import { MagnifierPanel } from "@/components/MagnifierPanel";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface GlyphInput {
@@ -37,6 +38,7 @@ export default function Editor() {
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<"gfont" | "ttf">("ttf");
   const [previewMode, setPreviewModeState] = useState(false);
+  const [magnifierOpen, setMagnifierOpen] = useState(false);
   const [showPenSettings, setShowPenSettings] = useState(false);
   const [hasGlyphs, setHasGlyphs] = useState(false);
   const templateInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +187,14 @@ export default function Editor() {
               <span className="tracking-tight uppercase">Pen Settings</span>
             </button>
             <GuidelinesInfo />
+            <button
+              onClick={() => setMagnifierOpen((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+              aria-label="Toggle magnifier"
+              title="Toggle magnifier"
+            >
+              <Search size={16} />
+            </button>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
@@ -290,6 +300,9 @@ export default function Editor() {
                 <div className="absolute top-3 right-3 px-2.5 py-1.5 text-xs font-medium text-white bg-purple-600 rounded">
                   Preview Mode - Simulated Writing
                 </div>
+              )}
+              {magnifierOpen && (
+                <MagnifierPanel onClose={() => setMagnifierOpen(false)} />
               )}
             </div>
           </div>
