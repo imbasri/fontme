@@ -10,6 +10,7 @@ import { CHAR_SLOTS } from "@/lib/charset";
 import { downloadTemplatePdf } from "@/lib/template-grid";
 import { importTemplate } from "@/lib/template-import";
 import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload } from "lucide-react";
+import { GuidelinesInfo } from "@/components/GuidelinesInfo";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface GlyphInput {
@@ -183,6 +184,7 @@ export default function Editor() {
               <Settings size={16} />
               <span className="tracking-tight uppercase">Pen Settings</span>
             </button>
+            <GuidelinesInfo />
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
