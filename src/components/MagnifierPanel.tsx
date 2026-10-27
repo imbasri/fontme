@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useFontStore, Point } from "@/store/fontStore";
 import { getStroke } from "perfect-freehand";
 import { getEasingFunction } from "@/lib/easings";
 
 const EM = 500;
-const VIEW_PX = 180;     // magnified view size
-const MINIMAP_PX = 120;  // minimap size
+const VIEW_PX = 180;    // magnified view size (px)
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 5;
 
@@ -20,7 +19,6 @@ interface MagnifierPanelProps {
 
 export function MagnifierPanel({ position, zoom, setZoom, onClose }: MagnifierPanelProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
-  const minimapRef = useRef<HTMLCanvasElement>(null);
 
   const {
     activeCodepoint,
@@ -166,122 +164,48 @@ export function MagnifierPanel({ position, zoom, setZoom, onClose }: MagnifierPa
     ctx.restore();
   }, [strokes, liveStroke, zoom, position, isPreviewMode, penSettings, capHeight, xHeight, baselineY, descenderY]);
 
-  // Minimap
-  useEffect(() => {
-    const minimap = minimapRef.current;
-    if (!minimap) return;
-    const dpr = window.devicePixelRatio || 1;
-    minimap.width = MINIMAP_PX * dpr;
-    minimap.height = MINIMAP_PX * dpr;
-    const ctx = minimap.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, MINIMAP_PX, MINIMAP_PX);
-
-    const s = (v: number) => (v / EM) * MINIMAP_PX;
-
-    // Guidelines
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#10b981"; ctx.beginPath(); ctx.moveTo(0, s(capHeight)); ctx.lineTo(MINIMAP_PX, s(capHeight)); ctx.stroke();
-    ctx.strokeStyle = "#3b82f6"; ctx.beginPath(); ctx.moveTo(0, s(xHeight)); ctx.lineTo(MINIMAP_PX, s(xHeight)); ctx.stroke();
-    ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(0, s(baselineY)); ctx.lineTo(MINIMAP_PX, s(baselineY)); ctx.stroke();
-    ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(0, s(descenderY)); ctx.lineTo(MINIMAP_PX, s(descenderY)); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Strokes
-    ctx.strokeStyle = "#333";
-    ctx.lineWidth = 0.8;
-    for (const st of strokes) {
-      if (st.length < 2) continue;
-      ctx.beginPath();
-      ctx.moveTo(s(st[0].x), s(st[0].y));
-      for (let i = 1; i < st.length; i++) ctx.lineTo(s(st[i].x), s(st[i].y));
-      ctx.stroke();
-    }
-    for (const st of liveStroke) {
-      if (st.length < 2) continue;
-      ctx.strokeStyle = "#3b82f6";
-      ctx.beginPath();
-      ctx.moveTo(s(st[0].x), s(st[0].y));
-      for (let i = 1; i < st.length; i++) ctx.lineTo(s(st[i].x), s(st[i].y));
-      ctx.stroke();
-      ctx.strokeStyle = "#333";
-    }
-
-    // Viewport rectangle
-    const viewW_em = VIEW_PX / zoom;
-    const viewX = Math.max(0, Math.min(EM - viewW_em, position.x - viewW_em / 2));
-    const viewY = Math.max(0, Math.min(EM - viewW_em, position.y - viewW_em / 2));
-    ctx.strokeStyle = "#ef4444";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(s(viewX), s(viewY), s(viewW_em), s(viewW_em));
-    ctx.fillStyle = "rgba(239,68,68,0.08)";
-    ctx.fillRect(s(viewX), s(viewY), s(viewW_em), s(viewW_em));
-
-    // Crosshair at mouse position
-    ctx.strokeStyle = "rgba(239,68,68,0.9)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.moveTo(s(position.x) - 8, s(position.y)); ctx.lineTo(s(position.x) + 8, s(position.y));
-    ctx.moveTo(s(position.x), s(position.y) - 8); ctx.lineTo(s(position.x), s(position.y) + 8);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }, [strokes, liveStroke, zoom, position, capHeight, xHeight, baselineY, descenderY]);
 
   return (
     <div
-      className="w-[220px] shrink-0 flex flex-col gap-1.5 z-40 pointer-events-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-lg p-1.5"
+      className="w-[200px] shrink-0 flex flex-col gap-1 z-40 pointer-events-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-lg p-1"
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-1">
-        <button
-          onClick={onClose}
-          title="Close magnifier"
-          className="w-6 h-6 rounded flex items-center justify-center bg-zinc-900/80 text-white text-xs hover:bg-zinc-700"
-        >
-          ×
-        </button>
-        <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-300">
-          {zoom.toFixed(1)}×
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.5))}
-            className="w-5 h-5 text-[10px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            title="Zoom out"
-          >
-            −
-          </button>
-          <button
-            onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.5))}
-            className="w-5 h-5 text-[10px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            title="Zoom in"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
       {/* Magnified view */}
-      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800">
+      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 relative">
         <canvas
           ref={viewRef}
           className="cursor-crosshair"
           style={{ width: VIEW_PX, height: VIEW_PX }}
         />
-      </div>
-
-      {/* Minimap */}
-      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800">
-        <canvas
-          ref={minimapRef}
-          className="cursor-move touch-none"
-          style={{ width: MINIMAP_PX, height: MINIMAP_PX }}
-        />
+        {/* Top bar overlay */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between gap-1 px-1.5 py-0.5 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm">
+          <button
+            onClick={onClose}
+            title="Close magnifier"
+            className="w-5 h-5 rounded flex items-center justify-center bg-zinc-900/80 text-white text-[10px] hover:bg-zinc-700"
+          >
+            ×
+          </button>
+          <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-300">
+            {zoom.toFixed(1)}×
+          </span>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.5))}
+              className="w-5 h-5 text-[10px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              title="Zoom out"
+            >
+              −
+            </button>
+            <button
+              onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.5))}
+              className="w-5 h-5 text-[10px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              title="Zoom in"
+            >
+              +
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
