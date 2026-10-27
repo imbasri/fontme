@@ -306,9 +306,9 @@ export default function Editor() {
           </div>
 
           {/* Magnifier Panel */}
-          {magnifierOpen && mouseEmPos && (
+          {magnifierOpen && (
             <MagnifierPanel
-              position={mouseEmPos}
+              position={mouseEmPos ?? { x: 250, y: 250 }}
               zoom={zoom}
               setZoom={setZoom}
               onClose={() => setMagnifierOpen(false)}
