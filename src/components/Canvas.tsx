@@ -8,7 +8,7 @@ import { getEasingFunction } from "@/lib/easings";
 // 500-unit em space, y-down (y=0=atas, y=500=bawah). cap=10, xHeight=110, baseline=360, descender=475
 const EM = 500;
 
-export function Canvas() {
+export function Canvas({ onMouseMoveEm }: { onMouseMoveEm?: (pt: { x: number; y: number }) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -333,7 +333,7 @@ export function Canvas() {
         className="cursor-crosshair touch-none bg-white rounded-md border border-zinc-200"
         style={canvasStyle}
         onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
+        onPointerMove={(e) => { onPointerMove(e); onMouseMoveEm?.(toEmCoord(e.clientX, e.clientY)); }}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
       />

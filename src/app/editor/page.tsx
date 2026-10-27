@@ -39,6 +39,8 @@ export default function Editor() {
   const [exportFormat, setExportFormat] = useState<"gfont" | "ttf">("ttf");
   const [previewMode, setPreviewModeState] = useState(false);
   const [magnifierOpen, setMagnifierOpen] = useState(false);
+  const [mouseEmPos, setMouseEmPos] = useState<{ x: number; y: number } | null>(null);
+  const [zoom, setZoom] = useState(3);
   const [showPenSettings, setShowPenSettings] = useState(false);
   const [hasGlyphs, setHasGlyphs] = useState(false);
   const templateInputRef = useRef<HTMLInputElement>(null);
@@ -264,11 +266,10 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Main area: canvas + character slots */}
+        {/* Main area: canvas + magnifier + character slots */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Canvas area */}
           <div className="flex-1 flex flex-col items-center justify-center min-w-0 min-h-0 p-6 gap-3">
-            {/* Prev / Next slot nav */}
             <div className="flex items-center gap-3">
               <button
                 onClick={prevSlot}
@@ -290,7 +291,7 @@ export default function Editor() {
             </div>
             <div className="relative w-full max-w-[min(600px,calc(100vh-240px))] aspect-square rounded-md shadow-sm">
               <BorderBeam size={50} colorFrom="#10b981" colorTo="#3b82f6" borderWidth={2} />
-              <Canvas />
+              <Canvas onMouseMoveEm={setMouseEmPos} />
               {activeCodepoint && (
                 <div className="absolute top-3 left-3 px-2.5 py-1.5 text-sm font-mono bg-black/50 text-white rounded">
                   {String.fromCharCode(activeCodepoint)} ({activeCodepoint})
@@ -301,11 +302,18 @@ export default function Editor() {
                   Preview Mode - Simulated Writing
                 </div>
               )}
-              {magnifierOpen && (
-                <MagnifierPanel onClose={() => setMagnifierOpen(false)} />
-              )}
             </div>
           </div>
+
+          {/* Magnifier Panel */}
+          {magnifierOpen && mouseEmPos && (
+            <MagnifierPanel
+              position={mouseEmPos}
+              zoom={zoom}
+              setZoom={setZoom}
+              onClose={() => setMagnifierOpen(false)}
+            />
+          )}
 
           {/* Character slots panel */}
           <aside className="w-80 shrink-0 overflow-y-auto p-4 bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 flex flex-col gap-6">
@@ -338,7 +346,6 @@ export default function Editor() {
                 })}
               </div>
             </div>
-
           </aside>
         </div>
 
