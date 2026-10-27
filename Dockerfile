@@ -18,8 +18,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/package.json ./package.json
 
-EXPOSE 3000
-HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD curl -sf http://localhost:3000 || exit 1
+ENV PORT=6767
+
+EXPOSE 6767
 
 CMD ["node", "server.js"]
