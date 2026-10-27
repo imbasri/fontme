@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: production
-FROM node:22-bookworm-slim AS runner
+FROM node:22-bookworm AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
