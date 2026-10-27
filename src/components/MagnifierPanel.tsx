@@ -171,7 +171,7 @@ export function MagnifierPanel({ position, zoom, setZoom, onClose }: MagnifierPa
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Magnified view */}
-      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 relative">
+      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-800 relative" style={{ height: "fit-content" }}>
         <canvas
           ref={viewRef}
           className="cursor-crosshair"
