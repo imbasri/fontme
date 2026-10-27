@@ -266,10 +266,11 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Main area: canvas + magnifier + character slots */}
+        {/* Main area: canvas + character slots */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Canvas area */}
           <div className="flex-1 flex flex-col items-center justify-center min-w-0 min-h-0 p-6 gap-3">
+            {/* Prev / Next slot nav */}
             <div className="flex items-center gap-3">
               <button
                 onClick={prevSlot}
@@ -346,6 +347,7 @@ export default function Editor() {
                 })}
               </div>
             </div>
+
           </aside>
         </div>
 

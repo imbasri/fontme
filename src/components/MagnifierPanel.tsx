@@ -21,7 +21,6 @@ interface MagnifierPanelProps {
 export function MagnifierPanel({ position, zoom, setZoom, onClose }: MagnifierPanelProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
-  const [isHovering, setIsHovering] = useState(false);
 
   const {
     activeCodepoint,

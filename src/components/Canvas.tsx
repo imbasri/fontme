@@ -134,9 +134,10 @@ export function Canvas({ onMouseMoveEm }: { onMouseMoveEm?: (pt: { x: number; y:
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const { x, y } = toEmCoord(e.clientX, e.clientY);
+    onMouseMoveEm?.({ x, y });
     if (!isDrawing || isPreviewMode) return;
     if (activeTool === "hapus" || activeTool === "eraser") return;
-    const { x, y } = toEmCoord(e.clientX, e.clientY);
     addPoint(x, y, e.pressure);
   };
 
@@ -333,7 +334,7 @@ export function Canvas({ onMouseMoveEm }: { onMouseMoveEm?: (pt: { x: number; y:
         className="cursor-crosshair touch-none bg-white rounded-md border border-zinc-200"
         style={canvasStyle}
         onPointerDown={onPointerDown}
-        onPointerMove={(e) => { onPointerMove(e); onMouseMoveEm?.(toEmCoord(e.clientX, e.clientY)); }}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
       />
