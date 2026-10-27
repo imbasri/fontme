@@ -20,6 +20,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FontKu - Font Trajectory Designer",
   description: "Create trajectory fonts for CNC and pen plotters",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon-512x512.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
