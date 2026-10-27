@@ -1,6 +1,6 @@
 # Multi-stage build for font_ku (Next.js 16, Turbopack)
 # Stage 1: build
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
