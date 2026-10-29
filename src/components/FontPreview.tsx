@@ -154,6 +154,7 @@ export function FontPreview({
     ? selected
     : sortedGlyphs[0]?.codepoint ?? null;
   const target = glyphs.find((g) => g.codepoint === targetCodepoint);
+  // Per-glyph adjust values; slider shows the letter's own value (0/100 default)
   const adjust = (targetCodepoint != null && refineValues.glyphAdjust?.[targetCodepoint]) || {};
 
   const setAdjust = (field: keyof GlyphAdjust, value: number) => {
@@ -165,10 +166,6 @@ export function FontPreview({
         [targetCodepoint]: { ...p.glyphAdjust?.[targetCodepoint], [field]: value },
       },
     }));
-  };
-
-  const setGlobalAdjust = (field: "spaceBefore" | "spaceAfter" | "verticalAlignment" | "scale", value: number) => {
-    setRefineValues((p) => ({ ...p, [field]: value }));
   };
 
   const fontStyle = (enabled: boolean) => ({
@@ -246,10 +243,12 @@ export function FontPreview({
               <div className="flex items-baseline gap-0 text-[40px] leading-none text-zinc-900 sm:text-[64px]">
                 {sortedGlyphs.map((g) => {
                   const a = refineValues.glyphAdjust?.[g.codepoint] ?? {};
-                  const sb = a.spaceBefore ?? refineValues.spaceBefore;
-                  const sa = a.spaceAfter ?? refineValues.spaceAfter;
-                  const vo = a.verticalOffset ?? refineValues.verticalAlignment;
-                  const sc = (a.scale ?? refineValues.scale) / 100;
+                  // Per-glyph values only — no fallback to global refineValues,
+                  // so adjusting one letter never shifts the others.
+                  const sb = a.spaceBefore ?? 0;
+                  const sa = a.spaceAfter ?? 0;
+                  const vo = a.verticalOffset ?? 0;
+                  const sc = (a.scale ?? 100) / 100;
                   return (
                     <button
                       key={g.codepoint}
@@ -304,48 +303,32 @@ export function FontPreview({
             <div className="mt-6 space-y-6">
               <AdjustSlider
                 label="Space before"
-                value={adjust.spaceBefore ?? refineValues.spaceBefore}
+                value={adjust.spaceBefore ?? 0}
                 min={-50}
                 max={50}
-                onChange={(v) =>
-                  adjust.spaceBefore !== undefined
-                    ? setAdjust("spaceBefore", v)
-                    : setGlobalAdjust("spaceBefore", v)
-                }
+                onChange={(v) => setAdjust("spaceBefore", v)}
               />
               <AdjustSlider
                 label="Space after"
-                value={adjust.spaceAfter ?? refineValues.spaceAfter}
+                value={adjust.spaceAfter ?? 0}
                 min={-50}
                 max={50}
-                onChange={(v) =>
-                  adjust.spaceAfter !== undefined
-                    ? setAdjust("spaceAfter", v)
-                    : setGlobalAdjust("spaceAfter", v)
-                }
+                onChange={(v) => setAdjust("spaceAfter", v)}
               />
               <AdjustSlider
                 label="Vertical alignment"
-                value={adjust.verticalOffset ?? refineValues.verticalAlignment}
+                value={adjust.verticalOffset ?? 0}
                 min={-50}
                 max={50}
-                onChange={(v) =>
-                  adjust.verticalOffset !== undefined
-                    ? setAdjust("verticalOffset", v)
-                    : setGlobalAdjust("verticalAlignment", v)
-                }
+                onChange={(v) => setAdjust("verticalOffset", v)}
               />
               <AdjustSlider
                 label="Scale"
-                value={adjust.scale ?? refineValues.scale}
+                value={adjust.scale ?? 100}
                 min={50}
                 max={150}
                 unit="%"
-                onChange={(v) =>
-                  adjust.scale !== undefined
-                    ? setAdjust("scale", v)
-                    : setGlobalAdjust("scale", v)
-                }
+                onChange={(v) => setAdjust("scale", v)}
               />
             </div>
 
