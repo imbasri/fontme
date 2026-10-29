@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dev scratch
+dev.log
+PLAN.md
+test-stroke-trace.ts
+src/lib/ttf.js
+thin30_0.b64
+tmp-pf.mjs
+tt-norm.ttf
+tt-unnorm.ttf
+public/font-test.html
+public/fonts/
