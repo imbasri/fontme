@@ -344,8 +344,10 @@ export function buildFont(glyphs: TtfGlyphInput[], options: TtfOptions = {}): op
     familyName: "FontKu",
     styleName: "Regular",
     unitsPerEm: EM,
-    ascender: Math.round(800 * (opts.scale / 100)),
-    descender: Math.round(-200 * (opts.scale / 100)),
+    // Metrics match the canvas: baseline at 360/500, top at 0, bottom at 500.
+    // In TTF space (y-up, baseline=0): top = 720, bottom = -280.
+    ascender: Math.round(BASELINE_Y * SCALE * (opts.scale / 100)),
+    descender: Math.round(-(CANVAS_EM - BASELINE_Y) * SCALE * (opts.scale / 100)),
     glyphs: otGlyphs,
   });
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Download } from "lucide-react";
 import { buildFont, penToTtfOptions, type TtfOptions } from "@/lib/ttf";
+import { getStroke } from "perfect-freehand";
+import { buildStrokeOptions } from "@/lib/stroke-options";
 import { useFontStore } from "@/store/fontStore";
 
 export interface GlyphInput {
@@ -78,6 +80,106 @@ function AdjustSlider({
         className={`mt-3 h-1 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 dark:bg-zinc-700 ${SLIDER_THUMB}`}
       />
     </label>
+  );
+}
+
+/** Render a single drawn glyph as a canvas stroke, exactly like the editor
+ *  canvas. The canvas width is the glyph's actual ink width (not a fixed EM
+ *  square), so letters in a specimen row sit at their natural advance
+ *  instead of leaving wide empty gaps between them. CSS height is 1em and
+ *  CSS width is (inkW/500)em so the glyph scales with the parent's
+ *  font-size (specimen 40/64px, badge 28px, grid 44px). */
+function GlyphLetter({
+  strokes,
+  fill,
+  isFilled,
+  strokeWidth,
+  strokeColor,
+  penSettings,
+}: {
+  strokes: { x: number; y: number; pressure?: number }[][];
+  fill: string;
+  isFilled: boolean;
+  strokeWidth: number;
+  strokeColor: string;
+  penSettings: {
+    size: number;
+    thinning: number;
+    streamline: number;
+    smoothing: number;
+    easing: string;
+    taperStart: number;
+    taperEnd: number;
+    capStart: boolean;
+    capEnd: boolean;
+    easingStart: string;
+    easingEnd: string;
+    simulatePressure: boolean;
+  };
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Ink width of the whole glyph in EM units — drives the canvas CSS width.
+  const inkW = useMemo(() => {
+    let minX = Infinity, maxX = -Infinity;
+    for (const s of strokes) for (const p of s) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+    }
+    return Math.max(1, maxX - minX);
+  }, [strokes]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Draw at 2px per EM unit regardless of device DPR; CSS scales it down
+    // (sharp) to whatever font-size the parent resolves to.
+    const RES = 2;
+    const w = inkW * RES;
+    const h = 500 * RES;
+    canvas.width = w;
+    canvas.height = h;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // Left-align the ink so the canvas box is exactly the advance width.
+    let minX = Infinity;
+    for (const s of strokes) for (const p of s) if (p.x < minX) minX = p.x;
+
+    for (const stroke of strokes) {
+      if (stroke.length < 2) continue;
+      const outlinePts = getStroke(
+        stroke.map((p) => [p.x - minX, p.y, p.pressure ?? 0.5] as [number, number, number]),
+        buildStrokeOptions(penSettings)
+      );
+      if (outlinePts.length < 3) continue;
+
+      ctx.beginPath();
+      ctx.moveTo(outlinePts[0][0] * RES, outlinePts[0][1] * RES);
+      for (let i = 1; i < outlinePts.length; i++) {
+        ctx.lineTo(outlinePts[i][0] * RES, outlinePts[i][1] * RES);
+      }
+      ctx.closePath();
+      if (isFilled) { ctx.fillStyle = fill; ctx.fill(); }
+      if (strokeWidth > 0) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = strokeWidth * RES;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+      }
+    }
+  }, [strokes, inkW, fill, isFilled, strokeWidth, strokeColor, penSettings]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="block"
+      style={{ width: `${inkW / 500}em`, height: "1em" }}
+    />
   );
 }
 
@@ -240,7 +342,7 @@ export function FontPreview({
                 aria-hidden="true"
                 style={{ bottom: "20%" }}
               />
-              <div className="flex items-baseline gap-0 text-[40px] leading-none text-zinc-900 sm:text-[64px]">
+              <div className="flex items-end gap-[0.06em] text-[40px] leading-none text-zinc-900 sm:text-[64px]">
                 {sortedGlyphs.map((g) => {
                   const a = refineValues.glyphAdjust?.[g.codepoint] ?? {};
                   // Per-glyph values only — no fallback to global refineValues,
@@ -261,21 +363,28 @@ export function FontPreview({
                           : "text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
                       }`}
                       style={{
-                        ...fontStyle(fontUrl != null),
-                        opacity: fontUrl ? 1 : 0.3,
-                        // Match the built font: spaceBefore/After are canvas EM px,
-                        // ×SCALE=2 TTF units, /1000 → 0.002em. verticalOffset same.
+                        // Refine specimen renders each drawn glyph as a canvas
+                        // stroke from the user's actual strokes (not the built
+                        // TTF font, not a system font). Spacing/scale from the
+                        // sliders still apply via CSS transform/margin below.
+                        // Selected letter stays full-brightness; the rest
+                        // dim so it's obvious which glyph you're editing.
+                        opacity: targetCodepoint === g.codepoint ? 1 : 0.35,
                         marginLeft: `${sb * 0.002}em`,
                         marginRight: `${sa * 0.002}em`,
                         transform: `translateY(${vo * -0.002}em) scale(${sc})`,
-                        // Baseline sits 0.8em from the top of the 1em line box
-                        // (ascender 800 / descender 200); scale around it so the
-                        // letter grows from its own baseline, not the em box floor.
                         transformOrigin: "center 80%",
                         display: "inline-block",
                       }}
                     >
-                      {g.char}
+                      <GlyphLetter
+                        strokes={g.strokes}
+                        fill={penSettings.fill}
+                        isFilled={penSettings.isFilled}
+                        strokeWidth={penSettings.strokeWidth}
+                        strokeColor={penSettings.strokeColor}
+                        penSettings={penSettings}
+                      />
                     </button>
                   );
                 })}
@@ -292,10 +401,17 @@ export function FontPreview({
               <span className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 Letter
                 <span
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  style={fontStyle(fontUrl != null)}
+                  className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  style={{ fontSize: 24 }}
                 >
-                  {target?.char ?? "–"}
+                  <GlyphLetter
+                    strokes={target?.strokes || []}
+                    fill={penSettings.fill}
+                    isFilled={penSettings.isFilled}
+                    strokeWidth={penSettings.strokeWidth}
+                    strokeColor={penSettings.strokeColor}
+                    penSettings={penSettings}
+                  />
                 </span>
               </span>
             </div>
@@ -346,14 +462,22 @@ export function FontPreview({
                       onClick={() => setSelected(g.codepoint)}
                       aria-pressed={isSelected}
                       aria-label={`Edit letter ${g.char}`}
-                      className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-lg transition-colors ${
+                      className={`relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border text-lg transition-colors ${
                         isSelected
                           ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
                           : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:border-zinc-500"
                       }`}
-                      style={fontStyle(fontUrl != null)}
+                      title={`Glyph ${g.char} (${g.codepoint})`}
+                    style={{ fontSize: 44 }}
                     >
-                      {g.char}
+                      <GlyphLetter
+                        strokes={g.strokes}
+                        fill={penSettings.fill}
+                        isFilled={penSettings.isFilled}
+                        strokeWidth={penSettings.strokeWidth}
+                        strokeColor={penSettings.strokeColor}
+                        penSettings={penSettings}
+                      />
                       {isAdjusted && (
                         <span className="absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-current opacity-60" />
                       )}
@@ -383,9 +507,32 @@ export function FontPreview({
             rows={5}
             spellCheck={false}
             placeholder="Type here…"
-            className="mt-12 w-full resize-none border-0 bg-transparent p-0 text-3xl leading-snug tracking-tight outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700 sm:text-4xl"
-            style={{ ...fontStyle(fontUrl != null), opacity: fontUrl ? 1 : 0.35 }}
+            className="mt-4 w-full resize-none border-0 bg-transparent p-0 text-base leading-snug outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
           />
+
+          {previewText.trim() !== "" && (
+            <div
+              className="mt-8 text-3xl leading-snug tracking-tight sm:text-4xl"
+              style={{ ...fontStyle(fontUrl != null), opacity: fontUrl ? 1 : 0.35 }}
+              aria-label={previewText}
+            >
+              {[...previewText].map((ch, i) => {
+                const cp = ch.codePointAt(0)!;
+                const has = glyphs.some((g) => g.codepoint === cp);
+                return has ? (
+                  <span key={i}>{ch}</span>
+                ) : (
+                  <span
+                    key={i}
+                    className="inline-flex h-[1em] w-[0.6em] items-center justify-center rounded border border-dashed border-zinc-300 text-[0.4em] text-zinc-400 dark:border-zinc-600 dark:text-zinc-500"
+                    title={`"${ch}" belum digambar`}
+                  >
+                    {ch === " " ? " " : "?"}
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {previewText.trim() === "" && (
             <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
