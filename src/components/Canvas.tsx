@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFontStore, Point } from "@/store/fontStore";
 import { getStroke } from "perfect-freehand";
-import { getEasingFunction } from "@/lib/easings";
+import { buildStrokeOptions } from "@/lib/stroke-options";
 
 // 500-unit em space, y-down (y=0=atas, y=500=bawah). cap=10, xHeight=110, baseline=360, descender=475
 const EM = 500;
@@ -177,9 +177,9 @@ export function Canvas({ onMouseMoveEm }: { onMouseMoveEm?: (pt: { x: number; y:
       // Subtle right-side tick to show where the line ends
       ctx.fillRect(w - 8, yv - 1, 8, 2);
     };
-    guide(capHeight,   "#10b981", [5, 5], "cap");        // y=10 top
-    guide(xHeight,     "#3b82f6", [5, 5], "x-height");   // y=110 mid-top
-    guide(baselineY,   "#ef4444", [8, 5], "baseline");   // y=360 mid-bottom
+    guide(capHeight,   "#3b82f6", [5, 5], "cap");        // y=10 top
+    guide(xHeight,     "#10b981", [5, 5], "x-height");   // y=110 mid-top
+    guide(baselineY,   "#3b82f6", [8, 5], "baseline");   // y=360 mid-bottom
     guide(descenderY,  "#f59e0b", [5, 5], "descender");  // y=475 bottom
 
     // Top/bottom em-square boundaries so the user knows the full extent
@@ -203,30 +203,9 @@ export function Canvas({ onMouseMoveEm }: { onMouseMoveEm?: (pt: { x: number; y:
     const pts = upTo !== undefined ? stroke.slice(0, upTo + 1) : stroke;
     if (pts.length < 2) return;
     ctx.setLineDash([]);
-    const taperStartVal: number | boolean = penSettings.taperStart === 100 ? true : penSettings.taperStart;
-    const taperEndVal: number | boolean = penSettings.taperEnd === 100 ? true : penSettings.taperEnd;
-    const strokeOptions = {
-      size: penSettings.size,
-      thinning: penSettings.thinning,
-      streamline: penSettings.streamline,
-      smoothing: penSettings.smoothing,
-      easing: getEasingFunction(penSettings.easing),
-      simulatePressure: true,
-      start: {
-        cap: penSettings.capStart,
-        taper: taperStartVal,
-        easing: getEasingFunction(penSettings.easingStart),
-      },
-      end: {
-        cap: penSettings.capEnd,
-        taper: taperEndVal,
-        easing: getEasingFunction(penSettings.easingEnd),
-      },
-      last: true,
-    };
     const outlinePts = getStroke(
       pts.map((p) => [p.x, p.y, p.pressure ?? 0.5] as [number, number, number]),
-      strokeOptions
+      buildStrokeOptions(penSettings)
     );
     if (outlinePts.length < 3) return;
 

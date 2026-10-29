@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Canvas } from "@/components/Canvas";
 import { Confetti } from "@/components/ui/confetti";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { PenSettingsPanel } from "@/components/PenSettingsPanel";
 import { useFontStore } from "@/store/fontStore";
 import { CHAR_SLOTS } from "@/lib/charset";
+import { penToTtfOptions } from "@/lib/ttf";
 import { downloadTemplatePdf } from "@/lib/template-grid";
 import { importTemplate } from "@/lib/template-import";
-import { Pencil, Eraser, Waves, Feather, Settings, Download, Upload, Search } from "lucide-react";
+import { Eraser, Feather, Settings, Download, Upload, Search, Ruler } from "lucide-react";
 import { GuidelinesInfo } from "@/components/GuidelinesInfo";
 import { MagnifierPanel } from "@/components/MagnifierPanel";
+import { FontPreview } from "@/components/FontPreview";
+import type { GlyphAdjust } from "@/components/FontPreview";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface GlyphInput {
@@ -32,6 +35,9 @@ export default function Editor() {
     setPreviewMode,
     activeTool,
     setActiveTool,
+    penSettings,
+    updatePenSettings,
+    getActivePenSettings,
   } = useFontStore();
 
   const { glyphs } = useFontStore();
@@ -42,7 +48,34 @@ export default function Editor() {
   const [mouseEmPos, setMouseEmPos] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(3);
   const [showPenSettings, setShowPenSettings] = useState(false);
+  const [showRefine, setShowRefine] = useState(false);
+  const [refineValues, setRefineValues] = useState<{
+    spaceBefore: number;
+    spaceAfter: number;
+    verticalAlignment: number;
+    scale: number;
+    verticalGlyphOffsets?: number[];
+    glyphAdjust?: Record<number, GlyphAdjust>;
+  }>({
+    spaceBefore: 0,
+    spaceAfter: 0,
+    verticalAlignment: 0,
+    scale: 100,
+  });
   const [hasGlyphs, setHasGlyphs] = useState(false);
+
+  // Memoized glyph array — stable reference so FontPreview doesn't re-build on every render
+  const memoizedGlyphs = useMemo(
+    () =>
+      Object.values(glyphs)
+        .filter(g => g.strokes.length > 0)
+        .map(g => ({
+          codepoint: g.codepoint,
+          char: g.char,
+          strokes: g.strokes,
+        })),
+    [glyphs]
+  );
   const templateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,7 +98,20 @@ export default function Editor() {
       const response = await fetch("/api/build-font", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "fontku", glyphs: glyphInputs, format: exportFormat }),
+        body: JSON.stringify({
+          name: "fontku",
+          glyphs: glyphInputs,
+          format: exportFormat,
+          ttfOptions: exportFormat === "ttf" ? {
+            ...penToTtfOptions(penSettings),
+            letterSpacingMultiplier: penSettings.letterSpacingMultiplier,
+            spaceBefore: refineValues.spaceBefore,
+            spaceAfter: refineValues.spaceAfter,
+            verticalOffsets: refineValues.verticalGlyphOffsets,
+            scale: refineValues.scale,
+            glyphAdjust: refineValues.glyphAdjust,
+          } : undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -82,7 +128,6 @@ export default function Editor() {
       a.click();
       window.URL.revokeObjectURL(url);
 
-      // Fire confetti on successful export
       import("canvas-confetti").then(({ default: confetti }) =>
         confetti({ particleCount: 100, spread: 100, origin: { y: 0.7 } })
       );
@@ -91,6 +136,33 @@ export default function Editor() {
       alert("Export failed");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleSaveLocal = () => {
+    try {
+      const all = useFontStore.getState();
+      localStorage.setItem("fontku_saves", JSON.stringify(all.glyphs));
+      alert("Tersimpan! Buka kembali halaman ini kapan saja untuk melanjutkan.");
+    } catch {
+      alert("Gagal menyimpan — mungkin localStorage penuh.");
+    }
+  };
+
+  const handleLoadLocal = () => {
+    try {
+      const raw = localStorage.getItem("fontku_saves");
+      if (!raw) {
+        alert("Belum ada simpanan di browser.");
+        return;
+      }
+      const saved = JSON.parse(raw);
+      if (!saved || typeof saved !== "object") throw new Error("invalid");
+      useFontStore.setState({ glyphs: saved });
+      setHasGlyphs(Object.values(saved).some((g: any) => g?.strokes?.length > 0));
+      alert("Simpanan dimuat.");
+    } catch {
+      alert("Gagal memuat simpanan.");
     }
   };
 
@@ -113,10 +185,8 @@ export default function Editor() {
     }
   };
 
-  const TOOLS: Array<{ label: string; key: "pen" | "eraser" | "halus" | "stylus"; tooltip: string; icon: React.ReactNode }> = [
-    { label: "Pen", key: "pen", tooltip: "Raw, responsive — no smoothing", icon: <Pencil size={16} /> },
+  const TOOLS: Array<{ label: string; key: "eraser" | "stylus"; tooltip: string; icon: React.ReactNode }> = [
     { label: "Eraser", key: "eraser", tooltip: "Delete nearest stroke under cursor", icon: <Eraser size={16} /> },
-    { label: "Halus", key: "halus", tooltip: "Heavy adaptive smoothing (Atrament-style)", icon: <Waves size={16} /> },
     { label: "Stylus", key: "stylus", tooltip: "Light smoothing, balanced flow", icon: <Feather size={16} /> },
   ];
 
@@ -126,7 +196,7 @@ export default function Editor() {
       ? "border-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-md"
       : "border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-500";
 
-  const toggleTool = (tool: "pen" | "eraser" | "halus" | "stylus") =>
+  const toggleTool = (tool: "eraser" | "stylus") =>
     setActiveTool(tool);
 
   const nextSlot = () => {
@@ -169,31 +239,36 @@ export default function Editor() {
 
         {/* Tools topbar */}
         <div className="flex items-center justify-between gap-3 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 h-14">
-          <div className="flex items-center gap-3">
-            {TOOLS.map(({ label, key, icon, tooltip }) => (
+          <div className="flex items-center gap-2">
+            {TOOLS.map(({ key, icon, tooltip }) => (
               <button
                 key={key}
                 onClick={() => toggleTool(key)}
                 title={tooltip}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 transition-all text-sm font-medium ${getToolStyle(key)}`}
+                className={`w-9 h-9 rounded-lg border-2 transition-all flex items-center justify-center ${getToolStyle(key)}`}
               >
-                <span>{icon}</span>
-                <span className="tracking-tight uppercase">{label}</span>
+                {icon}
               </button>
             ))}
             <button
               onClick={() => setShowPenSettings(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 transition-all text-sm font-medium"
+              title="Pen settings"
+              className="w-9 h-9 rounded-lg border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 transition-all flex items-center justify-center"
             >
               <Settings size={16} />
-              <span className="tracking-tight uppercase">Pen Settings</span>
+            </button>
+            <button
+              onClick={() => setShowRefine(true)}
+              title="Perfect spacing"
+              className={`w-9 h-9 rounded-lg border-2 transition-all flex items-center justify-center ${showRefine ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400" : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"}`}
+            >
+              <Ruler size={16} />
             </button>
             <GuidelinesInfo />
             <button
               onClick={() => setMagnifierOpen((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-              aria-label="Toggle magnifier"
-              title="Toggle magnifier"
+              title="Magnifier"
+              className={`w-9 h-9 rounded-lg border-2 transition-all flex items-center justify-center ${magnifierOpen ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400" : "border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"}`}
             >
               <Search size={16} />
             </button>
@@ -202,28 +277,32 @@ export default function Editor() {
             <button
               onClick={undoLastStroke}
               disabled={undoStack.length === 0}
-              className="px-3 py-1.5 text-sm font-medium rounded-md border text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 disabled:opacity-40"
+              title="Undo"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 disabled:opacity-40 flex items-center justify-center"
             >
-              Undo
+              ↩
             </button>
             <button
               onClick={redoLastStroke}
               disabled={redoStack.length === 0}
-              className="px-3 py-1.5 text-sm font-medium rounded-md border text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 disabled:opacity-40"
+              title="Redo"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 disabled:opacity-40 flex items-center justify-center"
             >
-              Redo
+              ↪
             </button>
             <button
               onClick={togglePreviewMode}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${previewMode ? "border-purple-500 bg-purple-600 text-white" : "border-zinc-300 bg-white dark:bg-zinc-700 text-zinc-700 dark:text-zinc-100 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600"}`}
+              title="Preview"
+              className={`w-8 h-8 rounded-md border transition-colors text-sm font-medium ${previewMode ? "border-purple-500 bg-purple-600 text-white" : "border-zinc-300 bg-white dark:bg-zinc-700 text-zinc-700 dark:text-zinc-100 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"}`}
             >
-              {previewMode ? "Exit Preview" : "Preview"}
+              {previewMode ? "✖" : "👁"}
             </button>
             <button
               onClick={reset}
-              className="px-3 py-1.5 text-sm font-medium rounded-md border text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600"
+              title="Clear all"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"
             >
-              Clear All
+              ✕
             </button>
             <select
               value={exportFormat}
@@ -236,12 +315,26 @@ export default function Editor() {
             <button
               onClick={handleExport}
               disabled={!hasGlyphs || exporting}
+              title="Export"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 bg-blue-600 text-white border-blue-600 hover:bg-blue-500 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
             >
               <Download size={16} />
               <span className="tracking-tight">{exporting ? "Exporting..." : `Export`}</span>
             </button>
-            <span className="text-xs text-zinc-600 dark:text-zinc-400">PNG or PDF</span>
+            <button
+              onClick={handleSaveLocal}
+              title="Save to browser"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"
+            >
+              💾
+            </button>
+            <button
+              onClick={handleLoadLocal}
+              title="Load from browser"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"
+            >
+              📂
+            </button>
             <input
               ref={templateInputRef}
               type="file"
@@ -251,17 +344,17 @@ export default function Editor() {
             />
             <button
               onClick={() => templateInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
+              title="Import"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"
             >
-              <Upload size={16} />
-              <span className="tracking-tight">Import (PDF/PNG)</span>
+              <Upload size={14} />
             </button>
             <button
               onClick={() => downloadTemplatePdf()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium"
+              title="Template"
+              className="w-8 h-8 rounded-md border transition-colors text-sm font-medium text-zinc-700 dark:text-zinc-100 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-600 flex items-center justify-center"
             >
-              <Download size={16} />
-              <span className="tracking-tight">Download Template PDF</span>
+              <Download size={14} />
             </button>
           </div>
         </div>
@@ -316,7 +409,18 @@ export default function Editor() {
             />
           )}
 
-          {/* Character slots panel */}
+        {showRefine && hasGlyphs && (
+          <FontPreview
+            isOpen={showRefine}
+            onClose={() => setShowRefine(false)}
+            glyphs={memoizedGlyphs}
+            refineValues={refineValues}
+            setRefineValues={setRefineValues}
+            activeCodepoint={activeCodepoint}
+          />
+        )}
+
+        {/* Character slots panel */}
           <aside className="w-80 shrink-0 overflow-y-auto p-4 bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 flex flex-col gap-6">
             <div>
               <h2 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">

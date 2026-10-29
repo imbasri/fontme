@@ -27,10 +27,22 @@ export interface PenSettings {
   capEnd: boolean;
   easingStart: string;
   easingEnd: string;
+  /** When false, the pressure recorded while drawing is used as-is */
+  simulatePressure: boolean;
   fill: string;
   strokeColor: string;
   strokeWidth: number;
   isFilled: boolean;
+  /** Multiplier for glyph advance width (letter spacing) used in TTF export */
+  letterSpacingMultiplier: number;
+  /** Refine-stage spacing: extra advance width before each glyph */
+  spaceBefore: number;
+  /** Refine-stage spacing: extra advance width after each glyph */
+  spaceAfter: number;
+  /** Refine-stage vertical alignment offset (px shift up/down) */
+  verticalAlignment: number;
+  /** Refine-stage glyph scale (percent) */
+  scale: number;
 }
 
 const DEFAULT_PEN_SETTINGS: PenSettings = {
@@ -45,10 +57,16 @@ const DEFAULT_PEN_SETTINGS: PenSettings = {
   capEnd: true,
   easingStart: "linear",
   easingEnd: "linear",
+  simulatePressure: true,
   fill: "#000000",
   strokeColor: "#000000",
   strokeWidth: 0,
   isFilled: true,
+  letterSpacingMultiplier: 1.15,
+  spaceBefore: 0,
+  spaceAfter: 0,
+  verticalAlignment: 0,
+  scale: 100,
 };
 
 interface FontState {
@@ -256,6 +274,15 @@ export const useFontStore = create<FontState>()(
           activeTool: state.activeTool,
           penSettings: state.penSettings,
         }),
+        merge: (persisted, current) => {
+          const p = persisted as Partial<FontState> | undefined;
+          if (!p) return current;
+          return {
+            ...current,
+            ...p,
+            penSettings: { ...current.penSettings, ...(p.penSettings ?? {}) },
+          };
+        },
       }
     )
   )

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useFontStore, Point } from "@/store/fontStore";
 import { getStroke } from "perfect-freehand";
-import { getEasingFunction } from "@/lib/easings";
+import { buildStrokeOptions } from "@/lib/stroke-options";
 
 const EM = 500;
 const VIEW_PX = 180;    // magnified view size (px)
@@ -128,20 +128,7 @@ export function MagnifierPanel({ position, zoom, setZoom, onClose }: MagnifierPa
           ((p.y - viewY) / viewW_em) * VIEW_PX,
           p.pressure ?? 0.5,
         ] as [number, number, number]);
-        const taperStartVal = penSettings.taperStart === 100 ? true : penSettings.taperStart;
-        const taperEndVal = penSettings.taperEnd === 100 ? true : penSettings.taperEnd;
-        const opts = {
-          size: penSettings.size,
-          thinning: penSettings.thinning,
-          streamline: penSettings.streamline,
-          smoothing: penSettings.smoothing,
-          easing: getEasingFunction(penSettings.easing),
-          simulatePressure: true,
-          start: { cap: penSettings.capStart, taper: taperStartVal, easing: getEasingFunction(penSettings.easingStart) },
-          end: { cap: penSettings.capEnd, taper: taperEndVal, easing: getEasingFunction(penSettings.easingEnd) },
-          last: true,
-        };
-        const outline = getStroke(pts, opts);
+        const outline = getStroke(pts, buildStrokeOptions(penSettings));
         if (outline.length < 3) continue;
         ctx.beginPath();
         ctx.moveTo(outline[0][0], outline[0][1]);

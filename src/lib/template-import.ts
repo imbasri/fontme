@@ -8,17 +8,53 @@
 
 import { useFontStore, Point } from "@/store/fontStore";
 import { CHAR_SLOTS } from "./charset";
-import { cellForIndex, CELL_W, CELL_H, CELL_W_INT, CELL_H_INT, TEMPLATE_W, TEMPLATE_H, EM } from "./template-grid";
+import { cellForIndex, CELL_W, CELL_H, CELL_W_INT, CELL_H_INT, TEMPLATE_W, TEMPLATE_H, EM, GRID_X0, GRID_Y0, BOX_PAD_TOP } from "./template-grid";
 
 export const DARK_THRESHOLD = 130; // dark gray/black ink only (ballpoint ≈ 30–60)
 export const SAT_THRESHOLD = 35; // channel spread above this = colored (template guides), skip
 export const CELL_W_EXPORT = CELL_W;
 export const CELL_H_EXPORT = CELL_H;
 export const EM_EXPORT = EM;
+// Corner marker size (matches template-grid.ts drawing). Masked out so they aren't read as ink.
+export const MARKER_SIZE = 40;
+export const MARKER_MARGIN = 20;
+
 const DIRS: [number, number][] = [
   [-1, 0], [1, 0], [0, -1], [0, 1],
   [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
+
+/** Zero out any corner-marker pixels that fall inside this cell. */
+function maskOutCornerMarkers(
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  col: number,
+  row: number,
+  cellPxW: number,
+  cellPxH: number
+): void {
+  const markers: [number, number][] = [
+    [MARKER_MARGIN, MARKER_MARGIN],
+    [TEMPLATE_W - MARKER_MARGIN - MARKER_SIZE, MARKER_MARGIN],
+    [MARKER_MARGIN, TEMPLATE_H - MARKER_MARGIN - MARKER_SIZE],
+    [TEMPLATE_W - MARKER_MARGIN - MARKER_SIZE, TEMPLATE_H - MARKER_MARGIN - MARKER_SIZE],
+  ];
+  const cellX0 = GRID_X0 + col * cellPxW, cellY0 = GRID_Y0 + row * cellPxH;
+  const cellX1 = cellX0 + cellPxW, cellY1 = cellY0 + cellPxH;
+  for (const [mx, my] of markers) {
+    // Only touches this cell if marker bounds overlap cell bounds
+    if (mx + MARKER_SIZE <= cellX0 || mx >= cellX1 || my + MARKER_SIZE <= cellY0 || my >= cellY1)
+      continue;
+    const sx0 = Math.max(mx - cellX0, 0), sx1 = Math.min(mx + MARKER_SIZE - cellX0, w);
+    const sy0 = Math.max(my - cellY0, 0), sy1 = Math.min(my + MARKER_SIZE - cellY0, h);
+    for (let sy = sy0; sy < sy1; sy++) {
+      for (let sx = sx0; sx < sx1; sx++) {
+        mask[sy * w + sx] = 0;
+      }
+    }
+  }
+}
 
 export function getBinaryMask(
   src: HTMLCanvasElement,
@@ -27,7 +63,13 @@ export function getBinaryMask(
 ): { mask: Uint8Array; w: number; h: number } {
   const w = CELL_W_INT, h = CELL_H_INT;
   const ctx = src.getContext("2d")!;
-  const data = ctx.getImageData(col * w, row * h, w, h).data;
+  // Read from box top (below the 40px label gap, BOX_PAD_TOP), not cell top.
+  // X aligns: cell width == box width. Y needs the label-gap offset.
+  const data = ctx.getImageData(
+    GRID_X0 + col * w,
+    Math.round(GRID_Y0 + row * CELL_H + BOX_PAD_TOP),
+    w, h
+  ).data;
   const mask = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -40,6 +82,7 @@ export function getBinaryMask(
       mask[y * w + x] = 1;
     }
   }
+  maskOutCornerMarkers(mask, w, h, col, row, CELL_W_INT, CELL_H_INT);
   return { mask, w, h };
 }
 
